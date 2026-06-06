@@ -1,5 +1,7 @@
 <script setup>
-defineProps({
+import { ref, computed } from 'vue'
+
+const props = defineProps({
   activeView:       String,
   connectionStatus: String,
   statusColor:      String,
@@ -8,6 +10,24 @@ defineProps({
 
 const emit = defineEmits(['navigate', 'run-command', 'other-command', 'toggle-theme'])
 
+// 'idle' → only Start shown
+// 'running' → Pause + Stop shown
+// 'paused' → Resume + Stop shown
+const runState = ref('idle')
+
+const showStart  = computed(() => runState.value === 'idle')
+const showPause  = computed(() => runState.value === 'running')
+const showResume = computed(() => runState.value === 'paused')
+const showStop   = computed(() => runState.value === 'running' || runState.value === 'paused')
+
+function handleRun(cmd) {
+  if (cmd === 'start')  runState.value = 'running'
+  if (cmd === 'pause')  runState.value = 'paused'
+  if (cmd === 'resume') runState.value = 'running'
+  if (cmd === 'stop')   runState.value = 'idle'
+  emit('run-command', cmd)
+}
+
 const screensButtons = [
   { id: 'device-layout',   icon: '⊞', label: 'Device Layout' },
   { id: 'logging-details', icon: '📈', label: 'Log Details' },
@@ -15,78 +35,67 @@ const screensButtons = [
   { id: 'users',           icon: '👥', label: 'Users' },
 ]
 
-const runButtons = [
-  { id: 'start',  icon: '▶', label: 'Start',  cls: 'run-start' },
-  { id: 'pause',  icon: '⏸', label: 'Pause',  cls: 'run-pause' },
-  { id: 'resume', icon: '↻', label: 'Resume', cls: 'run-resume' },
-  { id: 'stop',   icon: '⏹', label: 'Stop',   cls: 'run-stop' },
-]
-
 const otherButtons = [
   { id: 'login',           icon: '🔑', label: 'Login' },
   { id: 'generate-report', icon: '📋', label: 'Generate Report' },
-  { id: 'write-to-log',    icon: '📝', label: 'Write to Log' },
 ]
 </script>
 
 <template>
   <div class="ribbon">
-    <div class="ribbon-title">
+    <div class="ribbon-title" style="cursor:pointer" @click="emit('navigate', 'device-layout')">
       <img src="/logo.png" alt="SAVI" class="ribbon-logo" />
-      <span>SAVI 2.0</span>
+      <div class="logo-name">SAVI</div>
     </div>
 
-    <!-- Screens -->
-    <div class="ribbon-group">
-      <div class="ribbon-group-btns">
-        <button
-          v-for="btn in screensButtons"
-          :key="btn.id"
-          class="ribbon-btn"
-          :class="{ active: activeView === btn.id }"
-          @click="emit('navigate', btn.id)"
-        >
-          <span class="ribbon-icon">{{ btn.icon }}</span>
-          {{ btn.label }}
-        </button>
+    <!-- Wrapping groups -->
+    <div class="ribbon-groups">
+      <!-- Screens -->
+      <div class="ribbon-group">
+        <div class="ribbon-group-btns">
+          <button
+            v-for="btn in screensButtons"
+            :key="btn.id"
+            class="ribbon-btn"
+            :class="{ active: activeView === btn.id }"
+            @click="emit('navigate', btn.id)"
+          >
+            <span class="ribbon-icon">{{ btn.icon }}</span>
+            {{ btn.label }}
+          </button>
+        </div>
+        <div class="ribbon-group-label">Screens</div>
       </div>
-      <div class="ribbon-group-label">Screens</div>
-    </div>
 
-    <!-- Run Options -->
-    <div class="ribbon-group">
-      <div class="ribbon-group-btns">
-        <button
-          v-for="btn in runButtons"
-          :key="btn.id"
-          class="ribbon-btn"
-          :class="btn.cls"
-          @click="emit('run-command', btn.id)"
-        >
-          <span class="ribbon-icon">{{ btn.icon }}</span>
-          {{ btn.label }}
-        </button>
+      <!-- Run Options — only on Log Details screen -->
+      <div v-if="activeView === 'logging-details'" class="ribbon-group">
+        <div class="ribbon-group-btns">
+          <button v-if="showStart"  class="ribbon-btn run-start"  @click="handleRun('start')" ><span class="ribbon-icon">▶</span>Start</button>
+          <button v-if="showPause"  class="ribbon-btn run-pause"  @click="handleRun('pause')" ><span class="ribbon-icon">⏸</span>Pause</button>
+          <button v-if="showResume" class="ribbon-btn run-resume" @click="handleRun('resume')"><span class="ribbon-icon">↻</span>Resume</button>
+          <button v-if="showStop"   class="ribbon-btn run-stop"   @click="handleRun('stop')"  ><span class="ribbon-icon">⏹</span>Stop</button>
+        </div>
+        <div class="ribbon-group-label">Run Options</div>
       </div>
-      <div class="ribbon-group-label">Run Options</div>
-    </div>
 
-    <!-- Other Options -->
-    <div class="ribbon-group">
-      <div class="ribbon-group-btns">
-        <button
-          v-for="btn in otherButtons"
-          :key="btn.id"
-          class="ribbon-btn"
-          @click="emit('other-command', btn.id)"
-        >
-          <span class="ribbon-icon">{{ btn.icon }}</span>
-          {{ btn.label }}
-        </button>
+      <!-- Other Options -->
+      <div class="ribbon-group">
+        <div class="ribbon-group-btns">
+          <button
+            v-for="btn in otherButtons"
+            :key="btn.id"
+            class="ribbon-btn"
+            @click="emit('other-command', btn.id)"
+          >
+            <span class="ribbon-icon">{{ btn.icon }}</span>
+            {{ btn.label }}
+          </button>
+        </div>
+        <div class="ribbon-group-label">Other Options</div>
       </div>
-      <div class="ribbon-group-label">Other Options</div>
     </div>
 
-    <!-- Right: status + theme toggle -->
+    <!-- Pinned top-right: status + theme toggle -->
     <div class="ribbon-right">
       <div class="conn-status">
         <span class="conn-dot" :style="{ backgroundColor: statusColor }" />

@@ -3,6 +3,7 @@ import { ref, provide, computed, onMounted, onUnmounted } from 'vue'
 import * as signalR from '@microsoft/signalr'
 import AppRibbon from './components/AppRibbon.vue'
 import LogView from './components/LogView.vue'
+import LoginModal from './components/LoginModal.vue'
 import DeviceLayout from './components/views/DeviceLayout.vue'
 import LoggingDetails from './components/views/LoggingDetails.vue'
 import Settings from './components/views/Settings.vue'
@@ -16,6 +17,7 @@ const activeView = ref('device-layout')
 const logEntries = ref([])
 const isDark = ref(false)
 const logHeight = ref(160)
+const showLogin = ref(false)
 
 const viewMap = {
   'device-layout':   DeviceLayout,
@@ -84,7 +86,12 @@ async function handleRunCommand(cmd) {
 }
 
 function handleOtherCommand(cmd) {
-  if (cmd === 'write-to-log') addLog('Manual log entry written', 'Info')
+  if (cmd === 'login') showLogin.value = true
+}
+
+function handleLogin({ username, password }) {
+  addLog(`Login attempt: ${username}`, 'Info')
+  showLogin.value = false
 }
 
 // Splitter drag
@@ -128,5 +135,11 @@ function onSplitterMouseDown(e) {
     <div class="log-area" :style="{ height: logHeight + 'px' }">
       <LogView :entries="logEntries" />
     </div>
+
+    <LoginModal
+      v-if="showLogin"
+      @close="showLogin = false"
+      @login="handleLogin"
+    />
   </div>
 </template>
