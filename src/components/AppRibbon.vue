@@ -6,6 +6,7 @@ const props = defineProps({
   connectionStatus: String,
   statusColor:      String,
   isDark:           Boolean,
+  currentUser:      Object,  // { username, role } or null
 })
 
 const emit = defineEmits(['navigate', 'run-command', 'other-command', 'toggle-theme'])
@@ -20,7 +21,11 @@ const showPause  = computed(() => runState.value === 'running')
 const showResume = computed(() => runState.value === 'paused')
 const showStop   = computed(() => runState.value === 'running' || runState.value === 'paused')
 
+const isAdmin    = computed(() => props.currentUser?.role === 'Admin')
+const canOperate = computed(() => props.currentUser?.role === 'Admin' || props.currentUser?.role === 'Operator')
+
 function handleRun(cmd) {
+  if (!canOperate.value) return
   if (cmd === 'start')  runState.value = 'running'
   if (cmd === 'pause')  runState.value = 'paused'
   if (cmd === 'resume') runState.value = 'running'
@@ -28,17 +33,20 @@ function handleRun(cmd) {
   emit('run-command', cmd)
 }
 
-const screensButtons = [
-  { id: 'device-layout',      icon: '⊞', label: 'Device Layout' },
-  { id: 'logging-details',    icon: '📈', label: 'Log Details' },
-  { id: 'settings',           icon: '⚙',  label: 'Settings' },
-  { id: 'users',              icon: '👥', label: 'Users' },
+const allScreensButtons = [
+  { id: 'device-layout',   icon: '⊞', label: 'Device Layout' },
+  { id: 'logging-details', icon: '📈', label: 'Log Details',  authRequired: true },
+  { id: 'settings',        icon: '⚙',  label: 'Settings',     authRequired: true },
+  { id: 'users',           icon: '👥', label: 'Users',         adminOnly: true },
 ]
 
-const otherButtons = [
-  { id: 'login',           icon: '🔑', label: 'Login' },
-  { id: 'generate-report', icon: '📋', label: 'Generate Report' },
-]
+const screensButtons = computed(() =>
+  allScreensButtons.filter(b => {
+    if (b.adminOnly)    return isAdmin.value
+    if (b.authRequired) return !!props.currentUser
+    return true
+  })
+)
 </script>
 
 <template>
@@ -67,8 +75,8 @@ const otherButtons = [
         <div class="ribbon-group-label">Screens</div>
       </div>
 
-      <!-- Run Options — only on Log Details screen -->
-      <div v-if="activeView === 'logging-details'" class="ribbon-group">
+      <!-- Run Options — only on Log Details screen, only for Admin/Operator -->
+      <div v-if="activeView === 'logging-details' && canOperate" class="ribbon-group">
         <div class="ribbon-group-btns">
           <button v-if="showStart"  class="ribbon-btn run-start"  @click="handleRun('start')" ><span class="ribbon-icon">▶</span>Start</button>
           <button v-if="showPause"  class="ribbon-btn run-pause"  @click="handleRun('pause')" ><span class="ribbon-icon">⏸</span>Pause</button>
@@ -81,25 +89,28 @@ const otherButtons = [
       <!-- Other Options -->
       <div class="ribbon-group">
         <div class="ribbon-group-btns">
-          <button
-            v-for="btn in otherButtons"
-            :key="btn.id"
-            class="ribbon-btn"
-            @click="emit('other-command', btn.id)"
-          >
-            <span class="ribbon-icon">{{ btn.icon }}</span>
-            {{ btn.label }}
+          <button class="ribbon-btn" @click="emit('other-command', 'generate-report')">
+            <span class="ribbon-icon">📋</span>Generate Report
+          </button>
+          <button v-if="currentUser" class="ribbon-btn" @click="emit('other-command', 'logout')">
+            <span class="ribbon-icon">🔓</span>Logout
+          </button>
+          <button v-else class="ribbon-btn" @click="emit('other-command', 'login')">
+            <span class="ribbon-icon">🔑</span>Login
           </button>
         </div>
         <div class="ribbon-group-label">Other Options</div>
       </div>
     </div>
 
-    <!-- Pinned top-right: status + theme toggle -->
+    <!-- Pinned top-right: connection status + user info + theme toggle -->
     <div class="ribbon-right">
       <div class="conn-status">
         <span class="conn-dot" :style="{ backgroundColor: statusColor }" />
         {{ connectionStatus }}
+      </div>
+      <div v-if="currentUser" class="ribbon-user">
+        {{ currentUser.username }} · {{ currentUser.role }}
       </div>
       <button class="theme-btn" @click="emit('toggle-theme')" :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'">
         {{ isDark ? '☀' : '🌙' }}

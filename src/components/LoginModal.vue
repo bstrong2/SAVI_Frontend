@@ -1,17 +1,23 @@
 <script setup>
 import { ref } from 'vue'
 
+const props = defineProps({
+  error:   { type: String, default: '' },
+  loading: { type: Boolean, default: false },
+})
+
 const emit = defineEmits(['close', 'login'])
 
-const username = ref('')
-const password = ref('')
-const capsLockOn = ref(false)
+const username    = ref('')
+const password    = ref('')
+const capsLockOn  = ref(false)
 
 function checkCaps(e) {
   capsLockOn.value = e.getModifierState('CapsLock')
 }
 
 function submit() {
+  if (props.loading) return
   emit('login', { username: username.value, password: password.value })
 }
 </script>
@@ -40,12 +46,13 @@ function submit() {
           @keyup="checkCaps"
         />
       </div>
-      <div v-if="capsLockOn" class="caps-warning">
-        ⇪ Caps Lock is on
-      </div>
+      <div v-if="capsLockOn" class="caps-warning">⇪ Caps Lock is on</div>
+      <div v-if="error" class="login-error">{{ error }}</div>
       <div class="modal-footer">
-        <button class="btn btn-primary" @click="submit">Log In</button>
-        <button class="btn btn-secondary" @click="emit('close')">Cancel</button>
+        <button class="btn btn-primary" :disabled="loading" @click="submit">
+          {{ loading ? 'Logging in…' : 'Log In' }}
+        </button>
+        <button class="btn btn-secondary" :disabled="loading" @click="emit('close')">Cancel</button>
       </div>
     </div>
   </div>
@@ -57,5 +64,11 @@ function submit() {
   color: #e65100;
   padding: 2px 0 4px 0;
   text-align: right;
+}
+.login-error {
+  font-size: 12px;
+  color: #f44336;
+  padding: 2px 0 6px 0;
+  text-align: center;
 }
 </style>

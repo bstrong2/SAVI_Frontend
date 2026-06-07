@@ -212,6 +212,12 @@ html, body {
   flex-shrink: 0;
 }
 
+.ribbon-user {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
 .theme-btn {
   background: transparent;
   border: 1px solid var(--border-color);

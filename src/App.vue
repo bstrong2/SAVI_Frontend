@@ -12,17 +12,24 @@ import Users from './components/views/Users.vue'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
 
-const connection = ref(null)
+const connection       = ref(null)
 const connectionStatus = ref('Disconnected')
-const activeView = ref('device-layout')
-const logEntries = ref([])
-const maxLogEntries = ref(1000)
-const isDark = ref(false)
-const logHeight = ref(160)
-const showLogin  = ref(false)
-const showReport = ref(false)
+const activeView       = ref('device-layout')
+const logEntries       = ref([])
+const maxLogEntries    = ref(1000)
+const isDark           = ref(false)
+const logHeight        = ref(160)
 
-// Shared device connections — used by Settings (edit) and AddSensorModal (connection picker)
+const showLogin    = ref(false)
+const showReport   = ref(false)
+const loginError   = ref('')
+const loginLoading = ref(false)
+
+// Auth state — token kept in memory only (not localStorage)
+const authToken   = ref(null)
+const currentUser = ref(null)  // { username, role }
+
+// Shared device connections — Settings (edit) and AddSensorModal (picker) both inject this
 const devices = ref([
   {
     id: 1, name: 'COM Device', type: 'com', expanded: false,
@@ -35,31 +42,34 @@ const devices = ref([
   {
     id: 2, name: 'IP Device', type: 'ip', expanded: false,
     properties: [
-      { name: 'Device Name', value: '',              description: 'Friendly name for this device',    propType: 'string', editing: false },
-      { name: 'IpAddress',   value: '192.168.1.100', description: 'IP address of the device',         propType: 'string', editing: false },
-      { name: 'PortNumber',  value: '502',            description: 'Port number for connection',       propType: 'int',    editing: false },
+      { name: 'Device Name', value: '',              description: 'Friendly name for this device', propType: 'string', editing: false },
+      { name: 'IpAddress',   value: '192.168.1.100', description: 'IP address of the device',      propType: 'string', editing: false },
+      { name: 'PortNumber',  value: '502',            description: 'Port number for connection',    propType: 'int',    editing: false },
     ],
   },
 ])
 
 const viewMap = {
-  'device-layout':      DeviceLayout,
-  'logging-details':    LoggingDetails,
-  'settings':           Settings,
-  'users':              Users,
+  'device-layout':   DeviceLayout,
+  'logging-details': LoggingDetails,
+  'settings':        Settings,
+  'users':           Users,
 }
 
 const statusColor = computed(() => {
-  if (connectionStatus.value === 'Connected')     return '#4caf50'
-  if (connectionStatus.value === 'Disconnected')  return '#f44336'
+  if (connectionStatus.value === 'Connected')    return '#4caf50'
+  if (connectionStatus.value === 'Disconnected') return '#f44336'
   return '#ff9800'
 })
 
-provide('connection', connection)
-provide('logEntries', logEntries)
-provide('addLog', addLog)
+provide('connection',    connection)
+provide('logEntries',    logEntries)
+provide('addLog',        addLog)
 provide('maxLogEntries', maxLogEntries)
-provide('devices', devices)
+provide('devices',       devices)
+provide('authToken',     authToken)
+provide('currentUser',   currentUser)
+provide('BACKEND_URL',   BACKEND_URL)
 
 function addLog(message, level = 'Info') {
   logEntries.value.push({ timestamp: new Date().toLocaleTimeString(), message, level })
@@ -73,25 +83,72 @@ function toggleTheme() {
   document.documentElement.dataset.theme = isDark.value ? 'dark' : ''
 }
 
+function decodeJwt(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]))
+  } catch {
+    return null
+  }
+}
+
+async function handleLogin({ username, password }) {
+  loginError.value   = ''
+  loginLoading.value = true
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ username, password }),
+    })
+
+    if (res.status === 401) {
+      loginError.value = 'Invalid username or password, or not authorized for this instance.'
+      return
+    }
+    if (!res.ok) {
+      loginError.value = 'Login failed. Please try again.'
+      return
+    }
+
+    const data = await res.json()
+    authToken.value   = data.token
+    currentUser.value = { username: data.username, role: data.role }
+    showLogin.value   = false
+    loginError.value  = ''
+    addLog(`Logged in as ${data.username} (${data.role})`, 'Info')
+  } catch {
+    loginError.value = 'Cannot reach the backend. Is the server running?'
+  } finally {
+    loginLoading.value = false
+  }
+}
+
+function handleLogout() {
+  authToken.value   = null
+  currentUser.value = null
+  showLogin.value   = true
+  addLog('Logged out', 'Info')
+}
+
 onMounted(async () => {
   const conn = new signalR.HubConnectionBuilder()
     .withUrl(`${BACKEND_URL}/saviHub`)
     .withAutomaticReconnect()
     .build()
 
-  conn.on('ReceiveServerMessage', (msg)           => addLog(msg, 'Info'))
-  conn.on('ReceiveMessage',       (sender, msg)   => addLog(`${sender}: ${msg}`, 'Info'))
-  conn.on('ReceiveLog',           (ts, msg, lvl)  => logEntries.value.push({ timestamp: ts, message: msg, level: lvl }))
-  conn.on('RunStateChanged',      (state)         => addLog(`Run state: ${state}`, 'Info'))
+  conn.on('ReceiveServerMessage', (msg)          => addLog(msg, 'Info'))
+  conn.on('ReceiveMessage',       (sender, msg)  => addLog(`${sender}: ${msg}`, 'Info'))
+  conn.on('ReceiveLog',           (ts, msg, lvl) => logEntries.value.push({ timestamp: ts, message: msg, level: lvl }))
+  conn.on('RunStateChanged',      (state)        => addLog(`Run state: ${state}`, 'Info'))
 
   conn.onreconnecting(() => { connectionStatus.value = 'Reconnecting...' })
-  conn.onreconnected(() =>  { connectionStatus.value = 'Connected' })
-  conn.onclose(() =>        { connectionStatus.value = 'Disconnected' })
+  conn.onreconnected(()  => { connectionStatus.value = 'Connected' })
+  conn.onclose(()        => { connectionStatus.value = 'Disconnected' })
 
   try {
     await conn.start()
     connectionStatus.value = 'Connected'
-    connection.value = conn
+    connection.value       = conn
     addLog('SignalR connected', 'Info')
   } catch (err) {
     connectionStatus.value = 'Disconnected'
@@ -114,19 +171,21 @@ async function handleRunCommand(cmd) {
 }
 
 function handleOtherCommand(cmd) {
-  if (cmd === 'login')           showLogin.value  = true
+  if (cmd === 'login')           showLogin.value = true
+  if (cmd === 'logout')          handleLogout()
   if (cmd === 'generate-report') showReport.value = true
 }
 
-function handleLogin({ username, password }) {
-  addLog(`Login attempt: ${username}`, 'Info')
-  showLogin.value = false
+function handleNavigate(view) {
+  if (view === 'users' && currentUser.value?.role !== 'Admin') return
+  if ((view === 'settings' || view === 'logging-details') && !currentUser.value) return
+  activeView.value = view
 }
 
 // Splitter drag
 function onSplitterMouseDown(e) {
   e.preventDefault()
-  const startY     = e.clientY
+  const startY      = e.clientY
   const startHeight = logHeight.value
 
   function onMove(ev) {
@@ -149,7 +208,8 @@ function onSplitterMouseDown(e) {
       :connection-status="connectionStatus"
       :status-color="statusColor"
       :is-dark="isDark"
-      @navigate="v => activeView = v"
+      :current-user="currentUser"
+      @navigate="handleNavigate"
       @run-command="handleRunCommand"
       @other-command="handleOtherCommand"
       @toggle-theme="toggleTheme"
@@ -167,6 +227,8 @@ function onSplitterMouseDown(e) {
 
     <LoginModal
       v-if="showLogin"
+      :error="loginError"
+      :loading="loginLoading"
       @close="showLogin = false"
       @login="handleLogin"
     />

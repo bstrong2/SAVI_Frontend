@@ -1,12 +1,21 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, inject, onMounted, onUnmounted } from 'vue'
 import AddSensorModal from '../AddSensorModal.vue'
 
-const isEditMode        = ref(false)
-const showAddMenu       = ref(false)
+const BACKEND_URL  = inject('BACKEND_URL', 'http://localhost:5176')
+const authToken    = inject('authToken')
+const currentUser  = inject('currentUser')
+const addLog       = inject('addLog', () => {})
+
+const canOperate = computed(() =>
+  currentUser?.value?.role === 'Admin' || currentUser?.value?.role === 'Operator'
+)
+
+const isEditMode         = ref(false)
+const showAddMenu        = ref(false)
 const showAddSensorModal = ref(false)
-const showColorPicker = ref(false)
-const selectedId      = ref(null)
+const showColorPicker    = ref(false)
+const selectedId         = ref(null)
 
 // Track whether a mousedown started inside the toolbar so a drag that ends
 // anywhere doesn't accidentally clear the selection.
@@ -23,6 +32,7 @@ function onKeyDown(e) {
 }
 
 onMounted(() => {
+  loadLayout()
   window.addEventListener('mouseup', resetToolbarFlag)
   window.addEventListener('keydown', onKeyDown)
 })
@@ -38,15 +48,39 @@ const PRESET_COLORS = [
   '#795548', '#607d8b', '#9e9e9e', '#ffffff',
 ]
 
-const items = ref([
-  { id: 1, type: 'sensor', name: 'Temperature 1', value: '--', unit: '°C',  x: 40,  y: 40 },
-  { id: 2, type: 'sensor', name: 'Pressure 1',    value: '--', unit: 'PSI', x: 200, y: 40 },
-  { id: 3, type: 'sensor', name: 'Flow Rate 1',   value: '--', unit: 'L/m', x: 40,  y: 140 },
-  { id: 4, type: 'rect', name: 'Zone A', x: 360, y: 40, w: 200, h: 150,
-    color: '#1e90ff', fontSize: 16, fontWeight: 'normal', textAlign: 'left' },
-])
+const items = ref([])
+let nextId = 1
 
-let nextId = 5
+async function loadLayout() {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/layout`)
+    if (!res.ok) return
+    const data = await res.json()
+    if (Array.isArray(data) && data.length > 0) {
+      items.value = data
+      nextId = Math.max(...data.map(i => i.id), 0) + 1
+    }
+  } catch {
+    // Backend unreachable — start with empty canvas
+  }
+}
+
+async function saveLayout() {
+  if (!authToken?.value) return
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/layout`, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${authToken.value}`,
+      },
+      body: JSON.stringify(items.value),
+    })
+    if (!res.ok) addLog(`Layout save failed (HTTP ${res.status})`, 'Warning')
+  } catch (err) {
+    addLog(`Layout save failed: ${err.message}`, 'Warning')
+  }
+}
 
 const selectedItem   = computed(() => items.value.find(i => i.id === selectedId.value) ?? null)
 const selectedIsRect = computed(() => selectedItem.value?.type === 'rect')
@@ -94,6 +128,7 @@ function doneEdit() {
   selectedId.value  = null
   showAddMenu.value = false
   closeColorPicker()
+  saveLayout()
 }
 
 function addSensor() {
@@ -106,6 +141,7 @@ function confirmAddSensor({ name, connection, driver }) {
   items.value.push({ id, type: 'sensor', name, connection, driver, value: '--', unit: '', x: 80, y: 80 })
   showAddSensorModal.value = false
   isEditMode.value = true
+  saveLayout()
 }
 
 function addRectangle() {
@@ -117,12 +153,14 @@ function addRectangle() {
   })
   showAddMenu.value = false
   isEditMode.value = true
+  saveLayout()
 }
 
 function deleteSelected() {
   if (selectedId.value !== null) {
     items.value      = items.value.filter(s => s.id !== selectedId.value)
     selectedId.value = null
+    saveLayout()
   }
 }
 
@@ -182,6 +220,7 @@ function startDrag(item, e) {
     canvasMinH.value = 0
     window.removeEventListener('mousemove', onMove)
     window.removeEventListener('mouseup', onUp)
+    saveLayout()
   }
   rafId = requestAnimationFrame(frame)
   window.addEventListener('mousemove', onMove)
@@ -193,7 +232,7 @@ function startResize(item, e) {
   e.preventDefault(); e.stopPropagation()
   const sx = e.clientX, sy = e.clientY, sw = item.w, sh = item.h
   const move = ev => { item.w = Math.max(100, sw + ev.clientX - sx); item.h = Math.max(50, sh + ev.clientY - sy) }
-  const up   = ()  => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
+  const up   = ()  => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); saveLayout() }
   window.addEventListener('mousemove', move)
   window.addEventListener('mouseup', up)
 }
@@ -242,15 +281,15 @@ function onCanvasClick(e) {
     >
       <!-- ── Non-edit mode ── -->
       <template v-if="!isEditMode">
-        <button class="toolbar-btn" @click.stop="startEdit">✏ Edit</button>
-        <div class="dropdown-wrapper">
+        <button v-if="canOperate" class="toolbar-btn" @click.stop="startEdit">✏ Edit</button>
+        <div v-if="canOperate" class="dropdown-wrapper">
           <button class="toolbar-btn" @click.stop="showAddMenu = !showAddMenu">＋ Add ▾</button>
           <div v-if="showAddMenu" class="dropdown-menu">
             <button @click="addSensor">Sensor</button>
             <button @click="addRectangle">Rectangle</button>
           </div>
         </div>
-        <button class="toolbar-btn" @click.stop="() => {}">↺ Reconnect</button>
+        <button v-if="canOperate" class="toolbar-btn" @click.stop="() => {}">↺ Reconnect</button>
       </template>
 
       <!-- ── Edit mode ── -->
@@ -385,7 +424,7 @@ function onCanvasClick(e) {
       @close="showAddSensorModal = false"
     />
 
-    <button class="reconnect-all-btn" @click.stop="() => {}">↺ Reconnect All Devices</button>
+    <button v-if="canOperate" class="reconnect-all-btn" @click.stop="() => {}">↺ Reconnect All Devices</button>
   </div>
 </template>
 
