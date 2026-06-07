@@ -1,7 +1,8 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, inject, onMounted, onUnmounted, nextTick } from 'vue'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
+const maxLogEntries = inject('maxLogEntries')
 
 const settings = ref([
   { id: 1,  depth: 0, name: 'Connection',           value: '',          description: 'Connection settings',              type: 'group',  expanded: true },
@@ -10,7 +11,7 @@ const settings = ref([
   { id: 4,  depth: 1, name: 'Reconnect on Loss',    value: true,        description: 'Auto-reconnect when disconnected', type: 'bool',   editing: false },
   { id: 5,  depth: 0, name: 'Logging',              value: '',          description: 'Logging settings',                 type: 'group',  expanded: true },
   { id: 6,  depth: 1, name: 'Log Level',            value: 'Info',      description: 'Minimum log level to display',     type: 'string', editing: false },
-  { id: 7,  depth: 1, name: 'Max Entries',          value: 1000,        description: 'Maximum log rows to keep in view', type: 'int',    editing: false },
+  { id: 7,  depth: 1, name: 'Max Entries',          value: maxLogEntries?.value ?? 1000, description: 'Maximum log rows to keep in view', type: 'int',    editing: false },
   { id: 8,  depth: 1, name: 'Auto Scroll',          value: true,        description: 'Auto-scroll log to newest entry',  type: 'bool',   editing: false },
   { id: 9,  depth: 0, name: 'Acquisition',          value: '',          description: 'Data acquisition settings',        type: 'group',  expanded: true },
   { id: 10, depth: 1, name: 'Poll Interval (ms)',   value: 1000,        description: 'How often to poll sensors',        type: 'int',    editing: false },
@@ -31,25 +32,16 @@ const visibleSettings = computed(() => {
   return result
 })
 
+// Sync Max Entries setting → App.vue's maxLogEntries ref
+watch(
+  () => settings.value.find(s => s.id === 7)?.value,
+  val => { if (maxLogEntries && val !== undefined) maxLogEntries.value = Number(val) }
+)
+
 // ── Device Connections ─────────────────────────────────────────────────────
 const dcExpanded = ref(true)
-const devices = ref([
-  {
-    id: 1, name: 'COM Device', type: 'com', expanded: false,
-    properties: [
-      { name: 'ComName',  value: 'COM1', description: 'COM port name (e.g., COM1)',   propType: 'string', editing: false },
-      { name: 'BaudRate', value: '9600', description: 'Baud rate for communication',  propType: 'int',    editing: false },
-    ],
-  },
-  {
-    id: 2, name: 'IP Device', type: 'ip', expanded: false,
-    properties: [
-      { name: 'IpAddress',  value: '192.168.1.100', description: 'IP address of the device',   propType: 'string', editing: false },
-      { name: 'PortNumber', value: '502',            description: 'Port number for connection', propType: 'int',    editing: false },
-    ],
-  },
-])
-let nextDevId = 3
+const devices = inject('devices')
+let nextDevId = Math.max(...devices.value.map(d => d.id), 2) + 1
 
 // Context menu
 const ctx = ref({ visible: false, x: 0, y: 0, mode: null, target: null })
@@ -66,12 +58,14 @@ function addDevice(type) {
   devices.value.push(
     type === 'com'
       ? { id, name: 'COM Device', type: 'com', expanded: true, properties: [
-            { name: 'ComName',  value: '',     description: 'COM port name (e.g., COM1)',   propType: 'string', editing: false },
-            { name: 'BaudRate', value: '9600', description: 'Baud rate for communication',  propType: 'int',    editing: false },
+            { name: 'Device Name', value: '',     description: 'Friendly name for this device',  propType: 'string', editing: false },
+            { name: 'ComPort',     value: '',     description: 'COM port (e.g., COM1)',           propType: 'string', editing: false },
+            { name: 'BaudRate',    value: '9600', description: 'Baud rate for communication',     propType: 'int',    editing: false },
           ] }
       : { id, name: 'IP Device', type: 'ip', expanded: true, properties: [
-            { name: 'IpAddress',  value: '',    description: 'IP address of the device',    propType: 'string', editing: false },
-            { name: 'PortNumber', value: '502', description: 'Port number for connection',  propType: 'int',    editing: false },
+            { name: 'Device Name', value: '',    description: 'Friendly name for this device',   propType: 'string', editing: false },
+            { name: 'IpAddress',   value: '',    description: 'IP address of the device',        propType: 'string', editing: false },
+            { name: 'PortNumber',  value: '502', description: 'Port number for connection',      propType: 'int',    editing: false },
           ] }
   )
   hideCtx()

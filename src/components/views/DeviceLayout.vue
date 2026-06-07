@@ -1,8 +1,10 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import AddSensorModal from '../AddSensorModal.vue'
 
-const isEditMode      = ref(false)
-const showAddMenu     = ref(false)
+const isEditMode        = ref(false)
+const showAddMenu       = ref(false)
+const showAddSensorModal = ref(false)
 const showColorPicker = ref(false)
 const selectedId      = ref(null)
 
@@ -11,8 +13,23 @@ const selectedId      = ref(null)
 // Reset is deferred via setTimeout so the click event fires first.
 let mouseDownInToolbar = false
 const resetToolbarFlag = () => setTimeout(() => { mouseDownInToolbar = false }, 0)
-onMounted(()   => window.addEventListener('mouseup', resetToolbarFlag))
-onUnmounted(() => window.removeEventListener('mouseup', resetToolbarFlag))
+
+function onKeyDown(e) {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && isEditMode.value && selectedId.value !== null) {
+    const tag = document.activeElement?.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+    deleteSelected()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('mouseup', resetToolbarFlag)
+  window.addEventListener('keydown', onKeyDown)
+})
+onUnmounted(() => {
+  window.removeEventListener('mouseup', resetToolbarFlag)
+  window.removeEventListener('keydown', onKeyDown)
+})
 
 const PRESET_COLORS = [
   '#1e90ff', '#0d47a1', '#00bcd4', '#009688',
@@ -80,9 +97,14 @@ function doneEdit() {
 }
 
 function addSensor() {
-  const id = nextId++
-  items.value.push({ id, type: 'sensor', name: `Sensor ${id}`, value: '--', unit: '', x: 80, y: 80 })
   showAddMenu.value = false
+  showAddSensorModal.value = true
+}
+
+function confirmAddSensor({ name, connection, driver }) {
+  const id = nextId++
+  items.value.push({ id, type: 'sensor', name, connection, driver, value: '--', unit: '', x: 80, y: 80 })
+  showAddSensorModal.value = false
   isEditMode.value = true
 }
 
@@ -356,6 +378,14 @@ function onCanvasClick(e) {
         </template>
       </div>
     </div>
+
+    <AddSensorModal
+      v-if="showAddSensorModal"
+      @add="confirmAddSensor"
+      @close="showAddSensorModal = false"
+    />
+
+    <button class="reconnect-all-btn" @click.stop="() => {}">↺ Reconnect All Devices</button>
   </div>
 </template>
 
@@ -364,4 +394,21 @@ function onCanvasClick(e) {
 .sensor-tile          { z-index: 2; }
 .sensor-tile.selected { outline: 2px solid var(--accent); }
 .rect-tile.selected   { outline: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.4); }
+
+.reconnect-all-btn {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  z-index: 10;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+.reconnect-all-btn:hover { background: var(--bg-ribbon-btn-hover); }
 </style>

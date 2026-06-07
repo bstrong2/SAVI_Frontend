@@ -16,10 +16,31 @@ const connection = ref(null)
 const connectionStatus = ref('Disconnected')
 const activeView = ref('device-layout')
 const logEntries = ref([])
+const maxLogEntries = ref(1000)
 const isDark = ref(false)
 const logHeight = ref(160)
 const showLogin  = ref(false)
 const showReport = ref(false)
+
+// Shared device connections — used by Settings (edit) and AddSensorModal (connection picker)
+const devices = ref([
+  {
+    id: 1, name: 'COM Device', type: 'com', expanded: false,
+    properties: [
+      { name: 'Device Name', value: '',     description: 'Friendly name for this device',    propType: 'string', editing: false },
+      { name: 'ComPort',     value: 'COM1', description: 'COM port (e.g., COM1)',             propType: 'string', editing: false },
+      { name: 'BaudRate',    value: '9600', description: 'Baud rate for communication',       propType: 'int',    editing: false },
+    ],
+  },
+  {
+    id: 2, name: 'IP Device', type: 'ip', expanded: false,
+    properties: [
+      { name: 'Device Name', value: '',              description: 'Friendly name for this device',    propType: 'string', editing: false },
+      { name: 'IpAddress',   value: '192.168.1.100', description: 'IP address of the device',         propType: 'string', editing: false },
+      { name: 'PortNumber',  value: '502',            description: 'Port number for connection',       propType: 'int',    editing: false },
+    ],
+  },
+])
 
 const viewMap = {
   'device-layout':      DeviceLayout,
@@ -37,9 +58,14 @@ const statusColor = computed(() => {
 provide('connection', connection)
 provide('logEntries', logEntries)
 provide('addLog', addLog)
+provide('maxLogEntries', maxLogEntries)
+provide('devices', devices)
 
 function addLog(message, level = 'Info') {
   logEntries.value.push({ timestamp: new Date().toLocaleTimeString(), message, level })
+  if (logEntries.value.length > maxLogEntries.value) {
+    logEntries.value = logEntries.value.slice(-maxLogEntries.value)
+  }
 }
 
 function toggleTheme() {

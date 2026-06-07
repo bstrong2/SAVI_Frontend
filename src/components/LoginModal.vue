@@ -5,6 +5,11 @@ const emit = defineEmits(['close', 'login'])
 
 const username = ref('')
 const password = ref('')
+const capsLockOn = ref(false)
+
+function checkCaps(e) {
+  capsLockOn.value = e.getModifierState('CapsLock')
+}
 
 function submit() {
   emit('login', { username: username.value, password: password.value })
@@ -31,7 +36,12 @@ function submit() {
           class="modal-input"
           v-model="password"
           @keydown.enter="submit"
+          @keydown="checkCaps"
+          @keyup="checkCaps"
         />
+      </div>
+      <div v-if="capsLockOn" class="caps-warning">
+        ⇪ Caps Lock is on
       </div>
       <div class="modal-footer">
         <button class="btn btn-primary" @click="submit">Log In</button>
@@ -40,3 +50,12 @@ function submit() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.caps-warning {
+  font-size: 12px;
+  color: #e65100;
+  padding: 2px 0 4px 0;
+  text-align: right;
+}
+</style>
