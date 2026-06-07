@@ -117,7 +117,7 @@ async function handleLogin({ username, password }) {
     loginError.value  = ''
     addLog(`Logged in as ${data.username} (${data.role})`, 'Info')
   } catch {
-    loginError.value = 'Cannot reach the backend. Is the server running?'
+    loginError.value = 'Cannot reach the backend.'
   } finally {
     loginLoading.value = false
   }
