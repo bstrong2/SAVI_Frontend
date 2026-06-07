@@ -34,6 +34,23 @@ let nextId = 5
 const selectedItem   = computed(() => items.value.find(i => i.id === selectedId.value) ?? null)
 const selectedIsRect = computed(() => selectedItem.value?.type === 'rect')
 
+// Minimum canvas size — pinned to the size at drag-start so that dragging an item
+// upward/leftward can't shrink the canvas mid-drag (which clamps scrollTop and
+// causes the position formula to snap the item to the top).
+const canvasMinW = ref(0)
+const canvasMinH = ref(0)
+
+const canvasStyle = computed(() => {
+  const PAD = 40
+  let maxX = canvasMinW.value
+  let maxY = canvasMinH.value
+  for (const item of items.value) {
+    maxX = Math.max(maxX, item.x + (item.w ?? 120) + PAD)
+    maxY = Math.max(maxY, item.y + (item.h ?? 60)  + PAD)
+  }
+  return { width: maxX + 'px', height: maxY + 'px' }
+})
+
 const originalColor = ref(null)
 
 function rectTextColor(hex) {
@@ -63,17 +80,21 @@ function doneEdit() {
 }
 
 function addSensor() {
-  items.value.push({ id: nextId++, type: 'sensor', name: `Sensor ${nextId - 1}`, value: '--', unit: '', x: 80, y: 80 })
+  const id = nextId++
+  items.value.push({ id, type: 'sensor', name: `Sensor ${id}`, value: '--', unit: '', x: 80, y: 80 })
   showAddMenu.value = false
+  isEditMode.value = true
 }
 
 function addRectangle() {
+  const id = nextId++
   items.value.push({
-    id: nextId++, type: 'rect', name: 'New Zone',
+    id, type: 'rect', name: 'New Zone',
     x: 80, y: 80, w: 200, h: 150,
     color: '#1e90ff', fontSize: 16, fontWeight: 'normal', textAlign: 'left',
   })
   showAddMenu.value = false
+  isEditMode.value = true
 }
 
 function deleteSelected() {
@@ -97,16 +118,52 @@ function clampFontSize(val) {
   return Math.max(8, Math.min(72, Number(val) || 13))
 }
 
-// Drag to move
+const wrapperRef = ref(null)
+
+// Drag to move — uses wrapper-relative coords + auto-scroll near edges
 function startDrag(item, e) {
   if (!isEditMode.value) return
   e.preventDefault()
   selectedId.value = item.id
-  const ox = e.clientX - item.x, oy = e.clientY - item.y
-  const move = ev => { item.x = Math.max(0, ev.clientX - ox); item.y = Math.max(0, ev.clientY - oy) }
-  const up   = ()  => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up) }
-  window.addEventListener('mousemove', move)
-  window.addEventListener('mouseup', up)
+
+  const wrapper = wrapperRef.value
+  const r0 = wrapper.getBoundingClientRect()
+  const ox = (e.clientX - r0.left + wrapper.scrollLeft) - item.x
+  const oy = (e.clientY - r0.top  + wrapper.scrollTop)  - item.y
+
+  // Pin canvas size so dragging up/left can't shrink it and clamp scrollTop mid-drag
+  canvasMinW.value = parseInt(canvasStyle.value.width)  || 0
+  canvasMinH.value = parseInt(canvasStyle.value.height) || 0
+
+  const EDGE = 40, SPEED = 4
+  let mx = e.clientX, my = e.clientY, rafId
+
+  const frame = () => {
+    const r = wrapper.getBoundingClientRect()
+    const rx = mx - r.left, ry = my - r.top
+    if (rx < EDGE)                 wrapper.scrollLeft = Math.max(0, wrapper.scrollLeft - SPEED)
+    else if (rx > r.width  - EDGE) wrapper.scrollLeft += SPEED
+    if (ry < EDGE)                 wrapper.scrollTop  = Math.max(0, wrapper.scrollTop  - SPEED)
+    else if (ry > r.height - EDGE) wrapper.scrollTop  += SPEED
+    // Clamp to wrapper min edges so mouse exiting above/left doesn't snap item to 0
+    const cx = Math.max(r.left, mx)
+    const cy = Math.max(r.top,  my)
+    item.x = Math.max(0, cx - r.left + wrapper.scrollLeft - ox)
+    item.y = Math.max(0, cy - r.top  + wrapper.scrollTop  - oy)
+    rafId = requestAnimationFrame(frame)
+  }
+
+  const onMove = ev => { mx = ev.clientX; my = ev.clientY }
+  const onUp   = () => {
+    cancelAnimationFrame(rafId)
+    canvasMinW.value = 0
+    canvasMinH.value = 0
+    window.removeEventListener('mousemove', onMove)
+    window.removeEventListener('mouseup', onUp)
+  }
+  rafId = requestAnimationFrame(frame)
+  window.addEventListener('mousemove', onMove)
+  window.addEventListener('mouseup', onUp)
 }
 
 // Resize grip
@@ -248,8 +305,8 @@ function onCanvasClick(e) {
       </template>
     </div>
 
-    <div class="device-canvas-wrapper">
-      <div class="device-canvas">
+    <div class="device-canvas-wrapper" ref="wrapperRef">
+      <div class="device-canvas" :style="canvasStyle">
         <template v-for="item in items" :key="item.id">
 
           <!-- Sensor tile -->

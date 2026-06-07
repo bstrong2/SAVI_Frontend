@@ -29,10 +29,10 @@ function handleRun(cmd) {
 }
 
 const screensButtons = [
-  { id: 'device-layout',   icon: '⊞', label: 'Device Layout' },
-  { id: 'logging-details', icon: '📈', label: 'Log Details' },
-  { id: 'settings',        icon: '⚙',  label: 'Settings' },
-  { id: 'users',           icon: '👥', label: 'Users' },
+  { id: 'device-layout',      icon: '⊞', label: 'Device Layout' },
+  { id: 'logging-details',    icon: '📈', label: 'Log Details' },
+  { id: 'settings',           icon: '⚙',  label: 'Settings' },
+  { id: 'users',              icon: '👥', label: 'Users' },
 ]
 
 const otherButtons = [

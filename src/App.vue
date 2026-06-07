@@ -4,6 +4,7 @@ import * as signalR from '@microsoft/signalr'
 import AppRibbon from './components/AppRibbon.vue'
 import LogView from './components/LogView.vue'
 import LoginModal from './components/LoginModal.vue'
+import ReportModal from './components/ReportModal.vue'
 import DeviceLayout from './components/views/DeviceLayout.vue'
 import LoggingDetails from './components/views/LoggingDetails.vue'
 import Settings from './components/views/Settings.vue'
@@ -17,13 +18,14 @@ const activeView = ref('device-layout')
 const logEntries = ref([])
 const isDark = ref(false)
 const logHeight = ref(160)
-const showLogin = ref(false)
+const showLogin  = ref(false)
+const showReport = ref(false)
 
 const viewMap = {
-  'device-layout':   DeviceLayout,
-  'logging-details': LoggingDetails,
-  'settings':        Settings,
-  'users':           Users,
+  'device-layout':      DeviceLayout,
+  'logging-details':    LoggingDetails,
+  'settings':           Settings,
+  'users':              Users,
 }
 
 const statusColor = computed(() => {
@@ -86,7 +88,8 @@ async function handleRunCommand(cmd) {
 }
 
 function handleOtherCommand(cmd) {
-  if (cmd === 'login') showLogin.value = true
+  if (cmd === 'login')           showLogin.value  = true
+  if (cmd === 'generate-report') showReport.value = true
 }
 
 function handleLogin({ username, password }) {
@@ -140,6 +143,10 @@ function onSplitterMouseDown(e) {
       v-if="showLogin"
       @close="showLogin = false"
       @login="handleLogin"
+    />
+    <ReportModal
+      v-if="showReport"
+      @close="showReport = false"
     />
   </div>
 </template>
