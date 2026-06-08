@@ -6,6 +6,10 @@
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <title>SAVI 2.0</title>
+    <script>
+      if (localStorage.getItem('savi-theme') === 'dark')
+        document.documentElement.dataset.theme = 'dark'
+    </script>
   </head>
   <body>
     <div id="app"></div>

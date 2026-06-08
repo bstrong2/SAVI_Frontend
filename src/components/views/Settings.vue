@@ -1,8 +1,10 @@
 <script setup>
 import { ref, computed, watch, inject, onMounted, onUnmounted, nextTick } from 'vue'
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
+const BACKEND_URL   = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
 const maxLogEntries = inject('maxLogEntries')
+const authToken     = inject('authToken')
+const addLog        = inject('addLog')
 
 const settings = ref([
   { id: 1,  depth: 0, name: 'Connection',           value: '',          description: 'Connection settings',              type: 'group',  expanded: true },
@@ -39,9 +41,24 @@ watch(
 )
 
 // ── Device Connections ─────────────────────────────────────────────────────
-const dcExpanded = ref(true)
-const devices = inject('devices')
+const dcExpanded     = ref(true)
+const devices        = inject('devices')
+const unsavedChanges = ref(false)
+let   _isLoading     = false           // suppresses watcher during load
 let nextDevId = Math.max(...devices.value.map(d => d.id), 2) + 1
+
+// Serialize devices without the transient `editing` flag so the watcher
+// only fires when actual data changes, not when a field is focused/blurred.
+const devicesSnapshot = computed(() =>
+  JSON.stringify(devices.value.map(d => ({
+    ...d,
+    properties: d.properties.map(({ editing, ...rest }) => rest),
+  })))
+)
+
+watch(devicesSnapshot, () => {
+  if (!_isLoading) unsavedChanges.value = true
+})
 
 // Context menu
 const ctx = ref({ visible: false, x: 0, y: 0, mode: null, target: null })
@@ -98,31 +115,48 @@ function handleKeyDown(e, s) { if (e.key === 'Enter' || e.key === 'Escape') stop
 // ── Save / Load ────────────────────────────────────────────────────────────
 async function saveSettings() {
   try {
-    await fetch(`${BACKEND_URL}/api/settings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ settings: settings.value, devices: devices.value }),
+    const res = await fetch(`${BACKEND_URL}/api/devices`, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': `Bearer ${authToken?.value}`,
+      },
+      body: JSON.stringify({ devices: devices.value }),
     })
-  } catch { /* not yet implemented */ }
+    if (res.ok) {
+      unsavedChanges.value = false
+      addLog?.('Settings saved successfully', 'Info')
+    } else {
+      addLog?.(`Settings save failed (${res.status})`, 'Warning')
+    }
+  } catch {
+    addLog?.('Settings save failed — backend unreachable', 'Error')
+  }
 }
 
 async function loadSettings() {
+  _isLoading = true
   try {
-    const res = await fetch(`${BACKEND_URL}/api/settings`)
+    const res = await fetch(`${BACKEND_URL}/api/devices`)
     if (res.ok) {
       const data = await res.json()
-      if (data.settings) settings.value = data.settings
-      if (data.devices)  devices.value  = data.devices
+      if (data.devices?.length) devices.value = data.devices
     }
-  } catch { /* not yet implemented */ }
+  } catch { /* backend unreachable */ }
+  _isLoading = false
+  unsavedChanges.value = false
 }
+
+// Device configs are loaded by App.vue on startup.
+// The Load Settings button is still available for a manual refresh.
 </script>
 
 <template>
   <div class="settings-view" @click="hideCtx">
     <div class="view-toolbar">
       <button class="toolbar-btn" @click.stop="saveSettings">💾 Save Settings</button>
-      <button class="toolbar-btn" @click.stop="loadSettings">📂 Load Settings</button>
+      <span v-if="unsavedChanges" class="unsaved-indicator">⚠ Unsaved changes</span>
+      <button class="toolbar-btn" @click.stop="loadSettings">📂 Load Settings (last saved)</button>
     </div>
 
     <div class="settings-table">
@@ -253,6 +287,13 @@ async function loadSettings() {
 </template>
 
 <style scoped>
+.unsaved-indicator {
+  font-size: 12px;
+  color: #e6a817;
+  font-weight: 600;
+  align-self: center;
+}
+
 .dc-root-row td { font-weight: 700; }
 .dc-device-row  { background: var(--bg-table-alt); font-weight: 600; font-size: 12px; }
 .dc-device-row:hover td { background: var(--bg-table-hover); }

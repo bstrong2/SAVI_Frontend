@@ -36,13 +36,15 @@ function handleRun(cmd) {
 const allScreensButtons = [
   { id: 'device-layout',   icon: '⊞', label: 'Device Layout' },
   { id: 'logging-details', icon: '📈', label: 'Log Details',  authRequired: true },
-  { id: 'settings',        icon: '⚙',  label: 'Settings',     authRequired: true },
+  { id: 'recipe',          icon: '📋', label: 'Recipe (in progress)', operatorOnly: true },
+  { id: 'settings',        icon: '⚙',  label: 'Settings',     operatorOnly: true },
   { id: 'users',           icon: '👥', label: 'Users',         adminOnly: true },
 ]
 
 const screensButtons = computed(() =>
   allScreensButtons.filter(b => {
     if (b.adminOnly)    return isAdmin.value
+    if (b.operatorOnly) return canOperate.value
     if (b.authRequired) return !!props.currentUser
     return true
   })
@@ -89,7 +91,7 @@ const screensButtons = computed(() =>
       <!-- Other Options -->
       <div class="ribbon-group">
         <div class="ribbon-group-btns">
-          <button class="ribbon-btn" @click="emit('other-command', 'generate-report')">
+          <button v-if="canOperate" class="ribbon-btn" @click="emit('other-command', 'generate-report')">
             <span class="ribbon-icon">📋</span>Generate Report
           </button>
           <button v-if="currentUser" class="ribbon-btn" @click="emit('other-command', 'logout')">

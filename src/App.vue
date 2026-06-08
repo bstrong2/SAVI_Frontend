@@ -7,6 +7,7 @@ import LoginModal from './components/LoginModal.vue'
 import ReportModal from './components/ReportModal.vue'
 import DeviceLayout from './components/views/DeviceLayout.vue'
 import LoggingDetails from './components/views/LoggingDetails.vue'
+import Recipe from './components/views/Recipe.vue'
 import Settings from './components/views/Settings.vue'
 import Users from './components/views/Users.vue'
 
@@ -52,6 +53,7 @@ const devices = ref([
 const viewMap = {
   'device-layout':   DeviceLayout,
   'logging-details': LoggingDetails,
+  'recipe':          Recipe,
   'settings':        Settings,
   'users':           Users,
 }
@@ -78,9 +80,30 @@ function addLog(message, level = 'Info') {
   }
 }
 
-function toggleTheme() {
+async function loadTheme() {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/settings`)
+    if (!res.ok) return
+    const data = await res.json()
+    const theme = data?.theme === 'dark' ? 'dark' : 'light'
+    localStorage.setItem('savi-theme', theme)
+    isDark.value = theme === 'dark'
+    document.documentElement.dataset.theme = isDark.value ? 'dark' : ''
+  } catch { /* backend unreachable — honour cached value already applied by index.html */ }
+}
+
+async function toggleTheme() {
   isDark.value = !isDark.value
+  const theme = isDark.value ? 'dark' : 'light'
   document.documentElement.dataset.theme = isDark.value ? 'dark' : ''
+  localStorage.setItem('savi-theme', theme)
+  try {
+    await fetch(`${BACKEND_URL}/api/settings`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ theme }),
+    })
+  } catch { /* best-effort */ }
 }
 
 function decodeJwt(token) {
@@ -126,11 +149,22 @@ async function handleLogin({ username, password }) {
 function handleLogout() {
   authToken.value   = null
   currentUser.value = null
-  showLogin.value   = true
+  activeView.value  = 'device-layout'
   addLog('Logged out', 'Info')
 }
 
 onMounted(async () => {
+  loadTheme()
+
+  // Load saved device configs so they're available in every view immediately
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/devices`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data.devices?.length) devices.value = data.devices
+    }
+  } catch { /* backend not yet reachable — Settings can reload manually */ }
+
   const conn = new signalR.HubConnectionBuilder()
     .withUrl(`${BACKEND_URL}/saviHub`)
     .withAutomaticReconnect()

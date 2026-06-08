@@ -85,15 +85,15 @@ onUnmounted(() => {
       </div>
       <div class="form-field">
         <label>Units</label>
-        <input type="text" v-model="units" />
+        <input type="text" v-model="units" readonly />
       </div>
       <div class="form-field">
         <label>IP Address</label>
-        <input type="text" v-model="ipAddr" />
+        <input type="text" v-model="ipAddr" readonly />
       </div>
       <div class="form-field">
         <label>Driver</label>
-        <input type="text" v-model="driver" />
+        <input type="text" v-model="driver" readonly />
       </div>
     </div>
 

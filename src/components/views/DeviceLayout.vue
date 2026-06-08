@@ -14,8 +14,9 @@ const canOperate = computed(() =>
 const isEditMode         = ref(false)
 const showAddMenu        = ref(false)
 const showAddSensorModal = ref(false)
-const showColorPicker    = ref(false)
-const selectedId         = ref(null)
+const showColorPicker     = ref(false)
+const showTextColorPicker = ref(false)
+const selectedId          = ref(null)
 
 // Track whether a mousedown started inside the toolbar so a drag that ends
 // anywhere doesn't accidentally clear the selection.
@@ -42,10 +43,11 @@ onUnmounted(() => {
 })
 
 const PRESET_COLORS = [
-  '#1e90ff', '#0d47a1', '#00bcd4', '#009688',
+  '#1e90ff', '#00bcd4', '#009688',
   '#4caf50', '#8bc34a', '#ffeb3b', '#ff9800',
   '#f44336', '#e91e63', '#9c27b0', '#673ab7',
   '#795548', '#607d8b', '#9e9e9e', '#ffffff',
+  '#000000',
 ]
 
 const items = ref([])
@@ -82,8 +84,10 @@ async function saveLayout() {
   }
 }
 
-const selectedItem   = computed(() => items.value.find(i => i.id === selectedId.value) ?? null)
-const selectedIsRect = computed(() => selectedItem.value?.type === 'rect')
+const selectedItem     = computed(() => items.value.find(i => i.id === selectedId.value) ?? null)
+const selectedIsRect   = computed(() => selectedItem.value?.type === 'rect')
+const selectedIsSensor = computed(() => selectedItem.value?.type === 'sensor')
+const selectedHasColor = computed(() => selectedIsRect.value || selectedIsSensor.value)
 
 // Minimum canvas size — pinned to the size at drag-start so that dragging an item
 // upward/leftward can't shrink the canvas mid-drag (which clamps scrollTop and
@@ -102,7 +106,8 @@ const canvasStyle = computed(() => {
   return { width: maxX + 'px', height: maxY + 'px' }
 })
 
-const originalColor = ref(null)
+const originalColor    = ref(null)
+const originalTextColor = ref(null)
 
 function rectTextColor(hex) {
   if (!hex) return '#fff'
@@ -114,13 +119,14 @@ function rectTextColor(hex) {
 
 function selectRect(item, e) {
   e.stopPropagation()
-  selectedId.value = item.id
+  if (isEditMode.value) selectedId.value = item.id
 }
 
 function startEdit() {
   isEditMode.value  = true
   showAddMenu.value = false
   closeColorPicker()
+  closeTextColorPicker()
 }
 
 function doneEdit() {
@@ -128,6 +134,7 @@ function doneEdit() {
   selectedId.value  = null
   showAddMenu.value = false
   closeColorPicker()
+  closeTextColorPicker()
   saveLayout()
 }
 
@@ -138,7 +145,7 @@ function addSensor() {
 
 function confirmAddSensor({ name, connection, driver }) {
   const id = nextId++
-  items.value.push({ id, type: 'sensor', name, connection, driver, value: '--', unit: '', x: 80, y: 80 })
+  items.value.push({ id, type: 'sensor', name, connection, driver, value: '--', unit: '', x: 80, y: 80, color: '#1e90ff', textColor: null })
   showAddSensorModal.value = false
   isEditMode.value = true
   saveLayout()
@@ -149,7 +156,7 @@ function addRectangle() {
   items.value.push({
     id, type: 'rect', name: 'New Zone',
     x: 80, y: 80, w: 200, h: 150,
-    color: '#1e90ff', fontSize: 16, fontWeight: 'normal', textAlign: 'left',
+    color: '#1e90ff', textColor: null, fontSize: 16, fontWeight: 'normal', textAlign: 'left',
   })
   showAddMenu.value = false
   isEditMode.value = true
@@ -239,7 +246,7 @@ function startResize(item, e) {
 
 // Color picker
 function pickColor(color) {
-  if (selectedItem.value && selectedIsRect.value) selectedItem.value.color = color
+  if (selectedItem.value && selectedHasColor.value) selectedItem.value.color = color
 }
 
 function confirmColor() {
@@ -248,7 +255,7 @@ function confirmColor() {
 }
 
 function closeColorPicker() {
-  if (originalColor.value && selectedItem.value && selectedIsRect.value)
+  if (originalColor.value && selectedItem.value && selectedHasColor.value)
     selectedItem.value.color = originalColor.value
   originalColor.value   = null
   showColorPicker.value = false
@@ -259,6 +266,36 @@ function openColorPicker() {
   showColorPicker.value = true
 }
 
+// Text color picker
+function openTextColorPicker() {
+  originalTextColor.value   = selectedItem.value?.textColor ?? null   // snapshot for Cancel
+  showTextColorPicker.value = true
+  showColorPicker.value     = false   // close bg picker if open
+}
+
+function pickTextColor(color) {
+  if (selectedItem.value && selectedHasColor.value) selectedItem.value.textColor = color
+}
+
+function confirmTextColor() {
+  originalTextColor.value   = null
+  showTextColorPicker.value = false
+}
+
+// revert defaults to false — clicking away confirms the pick, Cancel explicitly passes true
+function closeTextColorPicker(revert = false) {
+  if (revert && selectedItem.value && selectedHasColor.value)
+    selectedItem.value.textColor = originalTextColor.value
+  originalTextColor.value   = null
+  showTextColorPicker.value = false
+}
+
+function resetTextColorToAuto() {
+  if (selectedItem.value) selectedItem.value.textColor = null
+  originalTextColor.value   = null
+  showTextColorPicker.value = false
+}
+
 // Canvas click — deselects and closes menus, but not if the mouse was
 // pressed down in the toolbar (user was dragging a text selection).
 function onCanvasClick(e) {
@@ -266,8 +303,9 @@ function onCanvasClick(e) {
     mouseDownInToolbar = false
     return
   }
-  if (!e.target.closest('.dropdown-wrapper'))  showAddMenu.value = false
-  if (!e.target.closest('.color-picker-wrap')) closeColorPicker()
+  if (!e.target.closest('.dropdown-wrapper'))       showAddMenu.value = false
+  if (!e.target.closest('.color-picker-wrap'))      closeColorPicker()
+  if (!e.target.closest('.text-color-picker-wrap')) closeTextColorPicker()
   if (!e.target.closest('.sensor-tile') && !e.target.closest('.rect-tile')) selectedId.value = null
 }
 </script>
@@ -285,25 +323,25 @@ function onCanvasClick(e) {
         <div v-if="canOperate" class="dropdown-wrapper">
           <button class="toolbar-btn" @click.stop="showAddMenu = !showAddMenu">＋ Add ▾</button>
           <div v-if="showAddMenu" class="dropdown-menu">
-            <button @click="addSensor">Sensor</button>
+            <button @click="addSensor">Add Device</button>
             <button @click="addRectangle">Rectangle</button>
           </div>
         </div>
-        <button v-if="canOperate" class="toolbar-btn" @click.stop="() => {}">↺ Reconnect</button>
       </template>
 
       <!-- ── Edit mode ── -->
       <template v-else>
         <button class="toolbar-btn" :disabled="selectedId === null" @click="deleteSelected">🗑 Delete</button>
         <button class="toolbar-btn active" @click="doneEdit">✔ Done Editing</button>
+        <button v-if="selectedIsSensor" class="toolbar-btn" @click.stop="() => {}">↺ Reconnect</button>
 
-        <!-- Text + color formatting — only when a rect is selected -->
-        <template v-if="selectedIsRect">
+        <!-- Background + Text color pickers — available for both sensors and rects -->
+        <template v-if="selectedHasColor">
           <div class="toolbar-sep" />
 
-          <!-- Color -->
+          <!-- Background color -->
           <div class="color-picker-wrap" @click.stop>
-            <button class="toolbar-btn color-preview-btn" @click="showColorPicker = !showColorPicker">
+            <button class="toolbar-btn color-preview-btn" @click="showColorPicker = !showColorPicker; closeTextColorPicker()">
               <span class="color-preview-dot" :style="{ background: selectedItem.color }" />
               Color
             </button>
@@ -324,6 +362,33 @@ function onCanvasClick(e) {
             </div>
           </div>
 
+          <!-- Text color -->
+          <div class="text-color-picker-wrap" @click.stop>
+            <button class="toolbar-btn color-preview-btn" @click="openTextColorPicker">
+              <span class="color-preview-dot" :style="{ background: selectedItem.textColor ?? '#ffffff', border: selectedItem.textColor ? 'none' : '1px solid #aaa' }" />
+              Text
+            </button>
+            <div v-if="showTextColorPicker" class="color-picker-popup">
+              <div class="color-swatches">
+                <button
+                  v-for="c in PRESET_COLORS" :key="c"
+                  class="color-swatch"
+                  :class="{ active: selectedItem.textColor === c }"
+                  :style="{ background: c, borderColor: c === '#ffffff' ? '#ccc' : 'transparent' }"
+                  @click="pickTextColor(c)"
+                />
+              </div>
+              <div class="color-picker-footer">
+                <button class="btn btn-primary" style="font-size:12px;padding:4px 14px" @click="confirmTextColor">OK</button>
+                <button class="toolbar-btn" style="font-size:12px" @click="resetTextColorToAuto">Auto</button>
+                <button class="toolbar-btn" style="font-size:12px" @click="closeTextColorPicker()">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Text formatting — rects only -->
+        <template v-if="selectedIsRect">
           <div class="toolbar-sep" />
 
           <!-- Label -->
@@ -375,13 +440,17 @@ function onCanvasClick(e) {
             v-if="item.type === 'sensor'"
             class="sensor-tile"
             :class="{ editable: isEditMode, selected: selectedId === item.id }"
-            :style="{ left: item.x + 'px', top: item.y + 'px' }"
+            :style="{
+              left:       item.x + 'px',
+              top:        item.y + 'px',
+              background: item.color || 'var(--bg-sensor-tile)',
+            }"
             @mousedown="startDrag(item, $event)"
             @click.stop="isEditMode && (selectedId = item.id)"
           >
-            <div class="sensor-tile-name">{{ item.name }}</div>
-            <div class="sensor-tile-value">{{ item.value }}</div>
-            <div class="sensor-tile-unit">{{ item.unit }}</div>
+            <div class="sensor-tile-name"  :style="{ color: item.textColor || null }">{{ item.name }}</div>
+            <div class="sensor-tile-value" :style="{ color: item.textColor || null }">{{ item.value }}</div>
+            <div class="sensor-tile-unit"  :style="{ color: item.textColor || null }">{{ item.unit }}</div>
           </div>
 
           <!-- Rectangle tile -->
@@ -404,6 +473,7 @@ function onCanvasClick(e) {
                 fontSize:   item.fontSize + 'px',
                 fontWeight: item.fontWeight,
                 textAlign:  item.textAlign,
+                color:      item.textColor || rectTextColor(item.color),
               }"
             >{{ item.name }}</span>
             <button
@@ -436,7 +506,7 @@ function onCanvasClick(e) {
 
 .reconnect-all-btn {
   position: absolute;
-  bottom: 14px;
+  bottom: 20px;
   left: 14px;
   z-index: 10;
   padding: 6px 14px;
