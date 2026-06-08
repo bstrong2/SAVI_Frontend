@@ -6,6 +6,8 @@ const BACKEND_URL  = inject('BACKEND_URL', 'http://localhost:5176')
 const authToken    = inject('authToken')
 const currentUser  = inject('currentUser')
 const addLog       = inject('addLog', () => {})
+const items        = inject('layoutItems')
+const devices      = inject('devices', ref([]))
 
 const canOperate = computed(() =>
   currentUser?.value?.role === 'Admin' || currentUser?.value?.role === 'Operator'
@@ -50,7 +52,6 @@ const PRESET_COLORS = [
   '#000000',
 ]
 
-const items = ref([])
 let nextId = 1
 
 async function loadLayout() {
@@ -59,6 +60,11 @@ async function loadLayout() {
     if (!res.ok) return
     const data = await res.json()
     if (Array.isArray(data) && data.length > 0) {
+      // Normalise relay state for items saved before this field existed
+      data.forEach(item => {
+        if (item.type === 'sensor' && item.driver === 'relay' && item.relayState == null)
+          item.relayState = 'off'
+      })
       items.value = data
       nextId = Math.max(...data.map(i => i.id), 0) + 1
     }
@@ -145,7 +151,8 @@ function addSensor() {
 
 function confirmAddSensor({ name, connection, driver }) {
   const id = nextId++
-  items.value.push({ id, type: 'sensor', name, connection, driver, value: '--', unit: '', x: 80, y: 80, color: '#1e90ff', textColor: null })
+  const extra = driver === 'relay' ? { relayState: 'off' } : { value: '--', unit: '' }
+  items.value.push({ id, type: 'sensor', name, connection, driver, x: 80, y: 80, color: '#1e90ff', textColor: null, ...extra })
   showAddSensorModal.value = false
   isEditMode.value = true
   saveLayout()
@@ -294,6 +301,34 @@ function resetTextColorToAuto() {
   if (selectedItem.value) selectedItem.value.textColor = null
   originalTextColor.value   = null
   showTextColorPicker.value = false
+}
+
+// Relay control — resolve connection string to a numeric device id
+function resolveDeviceId(connection) {
+  if (!connection || connection === 'Simulated') return null
+  for (const d of devices.value) {
+    if (d.type === 'ip') {
+      const ip = d.properties.find(p => p.name === 'IpAddress')?.value?.trim()
+      if (ip === connection) return d.id
+    }
+  }
+  return null
+}
+
+async function handleRelayChange(item, state) {
+  item.relayState = state
+  const deviceId = resolveDeviceId(item.connection)
+  if (deviceId !== null) {
+    try {
+      await fetch(`${BACKEND_URL}/api/devices/${deviceId}/relay/${state}`, {
+        method: 'POST',
+        headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
+      })
+    } catch (err) {
+      addLog(`Relay command failed: ${err.message}`, 'Warning')
+    }
+  }
+  saveLayout()
 }
 
 // Canvas click — deselects and closes menus, but not if the mouse was
@@ -448,9 +483,47 @@ function onCanvasClick(e) {
             @mousedown="startDrag(item, $event)"
             @click.stop="isEditMode && (selectedId = item.id)"
           >
-            <div class="sensor-tile-name"  :style="{ color: item.textColor || null }">{{ item.name }}</div>
-            <div class="sensor-tile-value" :style="{ color: item.textColor || null }">{{ item.value }}</div>
-            <div class="sensor-tile-unit"  :style="{ color: item.textColor || null }">{{ item.unit }}</div>
+            <div class="sensor-tile-name" :style="{ color: item.textColor || null }">{{ item.name }}</div>
+
+            <!-- Relay: ON / OFF radio buttons -->
+            <template v-if="item.driver === 'relay'">
+              <div class="relay-controls" @mousedown.stop @click.stop>
+                <label
+                  class="relay-label"
+                  :class="{ 'relay-disabled': !canOperate }"
+                  :style="{ color: item.textColor || null }"
+                >
+                  <input
+                    type="radio"
+                    :name="'relay-' + item.id"
+                    value="on"
+                    :checked="item.relayState === 'on'"
+                    :disabled="!canOperate"
+                    @change="handleRelayChange(item, 'on')"
+                  /> ON
+                </label>
+                <label
+                  class="relay-label"
+                  :class="{ 'relay-disabled': !canOperate }"
+                  :style="{ color: item.textColor || null }"
+                >
+                  <input
+                    type="radio"
+                    :name="'relay-' + item.id"
+                    value="off"
+                    :checked="item.relayState !== 'on'"
+                    :disabled="!canOperate"
+                    @change="handleRelayChange(item, 'off')"
+                  /> OFF
+                </label>
+              </div>
+            </template>
+
+            <!-- Default sensors: live value + unit -->
+            <template v-else>
+              <div class="sensor-tile-value" :style="{ color: item.textColor || null }">{{ item.value }}</div>
+              <div class="sensor-tile-unit"  :style="{ color: item.textColor || null }">{{ item.unit }}</div>
+            </template>
           </div>
 
           <!-- Rectangle tile -->
@@ -520,4 +593,39 @@ function onCanvasClick(e) {
   box-shadow: 0 2px 6px rgba(0,0,0,0.12);
 }
 .reconnect-all-btn:hover { background: var(--bg-ribbon-btn-hover); }
+
+/* ── Relay tile controls ── */
+.relay-controls {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.relay-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.relay-label input[type="radio"] {
+  cursor: pointer;
+  width: 14px;
+  height: 14px;
+  accent-color: currentColor;
+}
+
+.relay-label.relay-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.relay-label.relay-disabled input[type="radio"] {
+  cursor: not-allowed;
+}
 </style>

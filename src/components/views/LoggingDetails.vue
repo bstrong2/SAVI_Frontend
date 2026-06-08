@@ -1,5 +1,5 @@
 <script setup>
-import { ref, inject, watch, onUnmounted } from 'vue'
+import { ref, computed, inject, watch, onUnmounted } from 'vue'
 import { Line } from 'vue-chartjs'
 import {
   Chart as ChartJS,
@@ -15,16 +15,37 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
-const connection = inject('connection')
+const connection  = inject('connection')
+const layoutItems = inject('layoutItems')
+const runInfo     = inject('runInfo')
 
-const selectedSensor = ref('Sensor 1')
-const sensorList = ref(['Sensor 1', 'Sensor 2', 'Sensor 3'])
-const units     = ref('°C')
-const ipAddr    = ref('192.168.1.100')
-const driver    = ref('ModbusTCP')
-const startedBy = ref('')
-const startedAt = ref('')
-const status    = ref('Idle')
+// Only sensors placed on the Device Layout canvas
+const sensorList = computed(() =>
+  (layoutItems?.value ?? []).filter(i => i.type === 'sensor')
+)
+
+const selectedSensorId = ref(null)
+
+// Keep selection valid: auto-select first sensor when list changes
+watch(sensorList, (list) => {
+  if (!list.find(s => s.id === selectedSensorId.value)) {
+    selectedSensorId.value = list[0]?.id ?? null
+  }
+}, { immediate: true })
+
+const selectedSensorObj = computed(() =>
+  sensorList.value.find(s => s.id === selectedSensorId.value) ?? null
+)
+
+// Detail fields — derived from the selected sensor
+const units     = computed(() => selectedSensorObj.value?.unit       ?? '—')
+const ipAddr    = computed(() => selectedSensorObj.value?.connection ?? '—')
+const driver    = computed(() => selectedSensorObj.value?.driver     ?? '—')
+
+// Right-panel fields — derived from runInfo provided by App.vue
+const startedBy = computed(() => runInfo?.value?.startedBy ?? '—')
+const startedAt = computed(() => runInfo?.value?.startedAt ?? '—')
+const status    = computed(() => runInfo?.value?.status    ?? 'Idle')
 
 const MAX_POINTS = 60
 
@@ -54,7 +75,7 @@ const chartOptions = {
 }
 
 function handleSensorUpdate(sensorId, value) {
-  if (sensorId !== selectedSensor.value) return
+  if (sensorId !== selectedSensorId.value) return
   const labels = chartData.value.labels
   const data   = chartData.value.datasets[0].data
   labels.push(new Date().toLocaleTimeString())
@@ -79,21 +100,22 @@ onUnmounted(() => {
     <div class="details-left">
       <div class="form-field">
         <label>Sensor</label>
-        <select v-model="selectedSensor">
-          <option v-for="s in sensorList" :key="s">{{ s }}</option>
+        <select v-model="selectedSensorId">
+          <option v-if="sensorList.length === 0" :value="null" disabled>No sensors on canvas</option>
+          <option v-for="s in sensorList" :key="s.id" :value="s.id">{{ s.name }}</option>
         </select>
       </div>
       <div class="form-field">
         <label>Units</label>
-        <input type="text" v-model="units" readonly />
+        <input type="text" :value="units" readonly />
       </div>
       <div class="form-field">
-        <label>IP Address</label>
-        <input type="text" v-model="ipAddr" readonly />
+        <label>Connection</label>
+        <input type="text" :value="ipAddr" readonly />
       </div>
       <div class="form-field">
         <label>Driver</label>
-        <input type="text" v-model="driver" readonly />
+        <input type="text" :value="driver" readonly />
       </div>
     </div>
 
@@ -111,15 +133,15 @@ onUnmounted(() => {
     <div class="details-right">
       <div class="form-field">
         <label>Started By</label>
-        <input type="text" v-model="startedBy" readonly />
+        <input type="text" :value="startedBy" readonly />
       </div>
       <div class="form-field">
         <label>Started At</label>
-        <input type="text" v-model="startedAt" readonly />
+        <input type="text" :value="startedAt" readonly />
       </div>
       <div class="form-field">
         <label>Status</label>
-        <input type="text" v-model="status" readonly />
+        <input type="text" :value="status" readonly />
       </div>
     </div>
   </div>

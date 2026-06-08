@@ -5,6 +5,7 @@ import AppRibbon from './components/AppRibbon.vue'
 import LogView from './components/LogView.vue'
 import LoginModal from './components/LoginModal.vue'
 import ReportModal from './components/ReportModal.vue'
+import StartRunModal from './components/StartRunModal.vue'
 import DeviceLayout from './components/views/DeviceLayout.vue'
 import LoggingDetails from './components/views/LoggingDetails.vue'
 import Recipe from './components/views/Recipe.vue'
@@ -21,14 +22,24 @@ const maxLogEntries    = ref(1000)
 const isDark           = ref(false)
 const logHeight        = ref(160)
 
-const showLogin    = ref(false)
-const showReport   = ref(false)
-const loginError   = ref('')
-const loginLoading = ref(false)
+const showLogin     = ref(false)
+const showReport    = ref(false)
+const showStartRun  = ref(false)
+const loginError    = ref('')
+const loginLoading  = ref(false)
+
+// Run state — owned here so the Start modal can gate the transition
+const runState = ref('idle')   // 'idle' | 'running' | 'paused'
+
+// Run info populated on Start confirm; provided to LoggingDetails
+const runInfo  = ref(null)     // { startedBy, startedAt, notes, sensorDescriptions, autoReport, overwrite }
 
 // Auth state — token kept in memory only (not localStorage)
 const authToken   = ref(null)
 const currentUser = ref(null)  // { username, role }
+
+// Shared canvas items — DeviceLayout (edit) and LoggingDetails (sensor picker) both inject this
+const layoutItems = ref([])
 
 // Shared device connections — Settings (edit) and AddSensorModal (picker) both inject this
 const devices = ref([
@@ -69,9 +80,11 @@ provide('logEntries',    logEntries)
 provide('addLog',        addLog)
 provide('maxLogEntries', maxLogEntries)
 provide('devices',       devices)
+provide('layoutItems',   layoutItems)
 provide('authToken',     authToken)
 provide('currentUser',   currentUser)
 provide('BACKEND_URL',   BACKEND_URL)
+provide('runInfo',       runInfo)
 
 function addLog(message, level = 'Info') {
   logEntries.value.push({ timestamp: new Date().toLocaleTimeString(), message, level })
@@ -193,6 +206,20 @@ onMounted(async () => {
 onUnmounted(() => connection.value?.stop())
 
 async function handleRunCommand(cmd) {
+  // 'start' shows the info modal first — don't transition until confirmed
+  if (cmd === 'start') {
+    showStartRun.value = true
+    return
+  }
+
+  // All other transitions happen immediately
+  if (cmd === 'pause')  runState.value = 'paused'
+  if (cmd === 'resume') runState.value = 'running'
+  if (cmd === 'stop') {
+    runState.value = 'idle'
+    if (runInfo.value) runInfo.value = { ...runInfo.value, status: 'Stopped' }
+  }
+
   if (connection.value?.state === signalR.HubConnectionState.Connected) {
     try {
       await connection.value.invoke('RunCommand', cmd)
@@ -201,6 +228,40 @@ async function handleRunCommand(cmd) {
     }
   } else {
     addLog(`Cannot send '${cmd}': not connected`, 'Warning')
+  }
+}
+
+async function handleStartConfirmed(info) {
+  runState.value = 'running'
+  runInfo.value  = {
+    ...info,
+    startedAt: new Date().toLocaleTimeString(),
+    status:    'Running',
+  }
+  showStartRun.value = false
+  addLog(`Run started by ${info.startedBy} — Recipe: ${info.recipeName}`, 'Info')
+
+  // Notify the backend to start the recipe
+  try {
+    await fetch(`${BACKEND_URL}/api/run/start`, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        ...(authToken.value ? { Authorization: `Bearer ${authToken.value}` } : {}),
+      },
+      body: JSON.stringify({
+        recipeName: info.recipeName,
+        startedBy:  info.startedBy,
+        notes:      info.notes,
+      }),
+    })
+  } catch { /* best-effort — frontend run state already set */ }
+
+  // Invoke SignalR when hub method is implemented
+  if (connection.value?.state === signalR.HubConnectionState.Connected) {
+    connection.value.invoke('RunCommand', 'start').catch(err =>
+      addLog(`RunCommand 'start' error: ${err.message}`, 'Error')
+    )
   }
 }
 
@@ -243,6 +304,7 @@ function onSplitterMouseDown(e) {
       :status-color="statusColor"
       :is-dark="isDark"
       :current-user="currentUser"
+      :run-state="runState"
       @navigate="handleNavigate"
       @run-command="handleRunCommand"
       @other-command="handleOtherCommand"
@@ -269,6 +331,11 @@ function onSplitterMouseDown(e) {
     <ReportModal
       v-if="showReport"
       @close="showReport = false"
+    />
+    <StartRunModal
+      v-if="showStartRun"
+      @confirm="handleStartConfirmed"
+      @cancel="showStartRun = false"
     />
   </div>
 </template>

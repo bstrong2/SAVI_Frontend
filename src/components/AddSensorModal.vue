@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, inject, onMounted } from 'vue'
+import { ref, computed, watch, inject, onMounted } from 'vue'
 
 const emit = defineEmits(['add', 'close'])
 
@@ -32,17 +32,34 @@ const connections = computed(() => {
   return list
 })
 
-// Sensor types fetched from the backend
+// Always-available types for Simulated connection
+const SIMULATED_TYPES = [
+  { id: 'relay',              name: 'Relay' },
+  { id: 'collision-detector', name: 'Collision Detector' },
+]
+
+// Sensor types fetched from the backend (used when a real device is selected)
 const sensorTypes = ref([])
+
+// Show simulated types when Simulated is selected; backend types otherwise
+const availableTypes = computed(() =>
+  selectedConnection.value === 'Simulated' ? SIMULATED_TYPES : sensorTypes.value
+)
+
+// Reset driver selection when connection or available list changes
+watch(availableTypes, (types) => {
+  if (!types.find(t => t.id === selectedDriver.value)) {
+    selectedDriver.value = types[0]?.id ?? ''
+  }
+}, { immediate: true })
 
 onMounted(async () => {
   try {
     const res = await fetch(`${BACKEND_URL}/api/sensors`)
     if (res.ok) {
       sensorTypes.value = await res.json()
-      if (sensorTypes.value.length) selectedDriver.value = sensorTypes.value[0].id
     }
-  } catch { /* backend unreachable — dropdown stays empty */ }
+  } catch { /* backend unreachable — real device dropdown stays empty */ }
 })
 
 function submit() {
@@ -81,7 +98,7 @@ function onKeydown(e) {
       <div class="modal-row">
         <label class="modal-label">Devices:</label>
         <select class="modal-input" v-model="selectedDriver">
-          <option v-for="s in sensorTypes" :key="s.id" :value="s.id">{{ s.name }}</option>
+          <option v-for="s in availableTypes" :key="s.id" :value="s.id">{{ s.name }}</option>
         </select>
       </div>
 

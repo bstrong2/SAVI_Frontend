@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 
 const props = defineProps({
   activeView:       String,
@@ -7,29 +7,23 @@ const props = defineProps({
   statusColor:      String,
   isDark:           Boolean,
   currentUser:      Object,  // { username, role } or null
+  runState:         { type: String, default: 'idle' },  // 'idle' | 'running' | 'paused'
 })
 
 const emit = defineEmits(['navigate', 'run-command', 'other-command', 'toggle-theme'])
 
-// 'idle' → only Start shown
-// 'running' → Pause + Stop shown
-// 'paused' → Resume + Stop shown
-const runState = ref('idle')
-
-const showStart  = computed(() => runState.value === 'idle')
-const showPause  = computed(() => runState.value === 'running')
-const showResume = computed(() => runState.value === 'paused')
-const showStop   = computed(() => runState.value === 'running' || runState.value === 'paused')
+// Derived from parent-controlled runState prop
+const showStart  = computed(() => props.runState === 'idle')
+const showPause  = computed(() => props.runState === 'running')
+const showResume = computed(() => props.runState === 'paused')
+const showStop   = computed(() => props.runState === 'running' || props.runState === 'paused')
 
 const isAdmin    = computed(() => props.currentUser?.role === 'Admin')
 const canOperate = computed(() => props.currentUser?.role === 'Admin' || props.currentUser?.role === 'Operator')
 
 function handleRun(cmd) {
   if (!canOperate.value) return
-  if (cmd === 'start')  runState.value = 'running'
-  if (cmd === 'pause')  runState.value = 'paused'
-  if (cmd === 'resume') runState.value = 'running'
-  if (cmd === 'stop')   runState.value = 'idle'
+  // Parent (App.vue) owns the state — just emit the request
   emit('run-command', cmd)
 }
 
