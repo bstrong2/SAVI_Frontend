@@ -60,10 +60,13 @@ async function loadLayout() {
     if (!res.ok) return
     const data = await res.json()
     if (Array.isArray(data) && data.length > 0) {
-      // Normalise relay state for items saved before this field existed
+      // Normalise fields added after initial save
       data.forEach(item => {
-        if (item.type === 'sensor' && item.driver === 'relay' && item.relayState == null)
+        if (item.type !== 'sensor') return
+        if (item.driver === 'relay' && item.relayState == null)
           item.relayState = 'off'
+        if (item.driver === 'collision-detector' && (item.value == null || item.value === '--'))
+          item.value = 'CLEAR'
       })
       items.value = data
       nextId = Math.max(...data.map(i => i.id), 0) + 1
@@ -151,7 +154,10 @@ function addSensor() {
 
 function confirmAddSensor({ name, connection, driver }) {
   const id = nextId++
-  const extra = driver === 'relay' ? { relayState: 'off' } : { value: '--', unit: '' }
+  const extra =
+    driver === 'relay'              ? { relayState: 'off' }        :
+    driver === 'collision-detector' ? { value: 'CLEAR', unit: '' } :
+                                      { value: '--',    unit: '' }
   items.value.push({ id, type: 'sensor', name, connection, driver, x: 80, y: 80, color: '#1e90ff', textColor: null, ...extra })
   showAddSensorModal.value = false
   isEditMode.value = true
@@ -331,6 +337,12 @@ async function handleRelayChange(item, state) {
   saveLayout()
 }
 
+// Simulated collision detector toggle
+function toggleCollisionSim(item) {
+  item.value = item.value === 'TRIGGERED' ? 'CLEAR' : 'TRIGGERED'
+  saveLayout()
+}
+
 // Canvas click — deselects and closes menus, but not if the mouse was
 // pressed down in the toolbar (user was dragging a text selection).
 function onCanvasClick(e) {
@@ -366,7 +378,7 @@ function onCanvasClick(e) {
 
       <!-- ── Edit mode ── -->
       <template v-else>
-        <button class="toolbar-btn" :disabled="selectedId === null" @click="deleteSelected">🗑 Delete</button>
+        <button v-if="selectedId !== null" class="toolbar-btn toolbar-btn-danger" @click="deleteSelected">🗑 Delete</button>
         <button class="toolbar-btn active" @click="doneEdit">✔ Done Editing</button>
         <button v-if="selectedIsSensor" class="toolbar-btn" @click.stop="() => {}">↺ Reconnect</button>
 
@@ -517,6 +529,30 @@ function onCanvasClick(e) {
                   /> OFF
                 </label>
               </div>
+              <div v-if="item.connection === 'Simulated'" class="sim-badge">SIM</div>
+            </template>
+
+            <!-- Collision Detector -->
+            <template v-else-if="item.driver === 'collision-detector'">
+              <div
+                class="collision-state"
+                :style="{
+                  color: item.textColor ||
+                    (item.value === 'TRIGGERED' ? '#ff5252' : '#69f0ae')
+                }"
+              >
+                <span class="collision-dot" />
+                {{ item.value ?? 'CLEAR' }}
+              </div>
+              <!-- Simulate trigger/release — only for Simulated connection + operators -->
+              <button
+                v-if="item.connection === 'Simulated' && canOperate"
+                class="sim-trigger-btn"
+                :class="{ 'sim-trigger-btn--active': item.value === 'TRIGGERED' }"
+                @mousedown.stop
+                @click.stop="toggleCollisionSim(item)"
+              >{{ item.value === 'TRIGGERED' ? 'Release' : 'Trigger' }}</button>
+              <div v-if="item.connection === 'Simulated'" class="sim-badge">SIM</div>
             </template>
 
             <!-- Default sensors: live value + unit -->
@@ -627,5 +663,53 @@ function onCanvasClick(e) {
 
 .relay-label.relay-disabled input[type="radio"] {
   cursor: not-allowed;
+}
+
+/* ── Collision Detector tile ── */
+.collision-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  margin-top: 5px;
+}
+
+.collision-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Trigger / Release simulation button */
+.sim-trigger-btn {
+  margin-top: 6px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 600;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.sim-trigger-btn:hover                { background: rgba(255, 255, 255, 0.20); }
+.sim-trigger-btn--active              { border-color: rgba(255, 82, 82, 0.60); }
+.sim-trigger-btn--active:hover        { background: rgba(255, 82, 82, 0.18); }
+
+/* ── SIM badge — shown on any simulated sensor ── */
+.sim-badge {
+  margin-top: 5px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
 }
 </style>

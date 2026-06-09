@@ -283,6 +283,8 @@ html, body {
 }
 .toolbar-btn:hover  { background: var(--bg-ribbon-btn-hover); }
 .toolbar-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.toolbar-btn-danger       { color: #f44336; border-color: #f44336; }
+.toolbar-btn-danger:hover { background: #f44336; color: #fff; }
 
 .toolbar-sep {
   width: 1px;

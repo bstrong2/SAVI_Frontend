@@ -11,10 +11,15 @@ const password     = ref('')
 const selectedRole = ref('Operator')
 const isGlobal     = ref(false)
 
-const users    = ref([])
-const loading  = ref(false)
-const error    = ref('')
-const addError = ref('')
+const users        = ref([])
+const loading      = ref(false)
+const error        = ref('')
+const addError     = ref('')
+
+// Tracks the in-progress (unsaved) role selection per user id.
+// When a user picks a new role in the dropdown it goes here.
+// Cleared on confirm or cancel.
+const pendingRoles = ref({})   // { [userId]: string }
 
 function authHeaders() {
   return {
@@ -26,6 +31,7 @@ function authHeaders() {
 async function fetchUsers() {
   loading.value = true
   error.value   = ''
+  pendingRoles.value = {}
   try {
     const res = await fetch(`${BACKEND_URL}/api/users`, { headers: authHeaders() })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -64,6 +70,47 @@ async function addUser() {
     await fetchUsers()
   } catch (e) {
     addError.value = `Failed to add user: ${e.message}`
+  }
+}
+
+// Called when the dropdown changes — just stages the new value, doesn't save yet.
+function onRoleChange(user, newRole) {
+  if (newRole === user.instanceRole) {
+    // Reverted back to saved value — clear the pending entry
+    const updated = { ...pendingRoles.value }
+    delete updated[user.id]
+    pendingRoles.value = updated
+  } else {
+    pendingRoles.value = { ...pendingRoles.value, [user.id]: newRole }
+  }
+}
+
+// Discard the staged change without saving.
+function cancelRoleEdit(user) {
+  const updated = { ...pendingRoles.value }
+  delete updated[user.id]
+  pendingRoles.value = updated
+}
+
+// Confirm and send the staged role to the backend.
+async function confirmRoleUpdate(user) {
+  const newRole = pendingRoles.value[user.id]
+  if (!newRole || newRole === user.instanceRole) return
+
+  error.value = ''
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/users/${user.id}/role`, {
+      method:  'PATCH',
+      headers: authHeaders(),
+      body:    JSON.stringify({ role: newRole }),
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+    // Commit the change locally and clear the pending entry
+    user.instanceRole = newRole
+    cancelRoleEdit(user)
+  } catch (e) {
+    error.value = `Failed to update role: ${e.message}`
   }
 }
 
@@ -139,13 +186,27 @@ onMounted(fetchUsers)
             <th>Username</th>
             <th>Instance Role</th>
             <th>Global</th>
-            <th style="width:100px">Actions</th>
+            <th style="width:120px">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="user in users" :key="user.id">
+          <tr v-for="user in users" :key="user.id" :class="{ 'row-dirty': !!pendingRoles[user.id] }">
             <td>{{ user.username }}</td>
-            <td>{{ user.instanceRole }}</td>
+            <td>
+              <div class="role-cell">
+                <select
+                  class="role-select"
+                  :value="pendingRoles[user.id] ?? user.instanceRole"
+                  @change="onRoleChange(user, $event.target.value)"
+                >
+                  <option v-for="r in roles" :key="r">{{ r }}</option>
+                </select>
+                <template v-if="pendingRoles[user.id]">
+                  <button class="btn btn-primary btn-xs" @click="confirmRoleUpdate(user)">Update</button>
+                  <button class="btn btn-secondary btn-xs" @click="cancelRoleEdit(user)" title="Cancel">✕</button>
+                </template>
+              </div>
+            </td>
             <td>{{ user.isGlobal ? 'Yes' : 'No' }}</td>
             <td>
               <button class="btn btn-danger" @click="removeUser(user)">Remove</button>
@@ -161,3 +222,39 @@ onMounted(fetchUsers)
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Role cell: dropdown + Update/Cancel inline */
+.role-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.role-select {
+  font-size: 13px;
+  padding: 2px 6px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-input, var(--bg-panel));
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.role-select:focus {
+  outline: 2px solid var(--accent-color, #1976d2);
+  outline-offset: 1px;
+}
+
+/* Extra-small button variant for inline row actions */
+.btn-xs {
+  font-size: 11px;
+  padding: 2px 7px;
+  line-height: 1.4;
+}
+
+/* Subtle highlight on rows with a pending (unsaved) change */
+.row-dirty td {
+  background: color-mix(in srgb, var(--accent-color, #1976d2) 6%, transparent);
+}
+</style>
