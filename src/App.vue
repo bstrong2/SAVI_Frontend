@@ -348,6 +348,21 @@ onMounted(async () => {
   conn.on('ReceiveLog',           (ts, msg, lvl) => logEntries.value.push({ timestamp: ts, message: msg, level: lvl }))
   conn.on('RunStateChanged',      (state)        => addLog(`Run state: ${state}`, 'Info'))
 
+  // Real Pi sensor readings — Pi sends SensorUpdate(canvasId_str, value) at poll rate.
+  // Updates the canvas tile so Device Layout reflects live state and the
+  // SimulatedSensorState chart tick can read the current tile value.
+  conn.on('SensorUpdate', (sensorIdStr, value) => {
+    const tileId = parseInt(sensorIdStr, 10)
+    if (isNaN(tileId)) return
+    const tile = layoutItems.value.find(i => i.id === tileId && i.type === 'sensor')
+    if (!tile) return
+    if (tile.driver === 'collision-detector') {
+      tile.value = value >= 0.5 ? 'Collision!' : 'No Contact'
+    } else if (tile.driver === 'relay') {
+      tile.relayState = value >= 0.5 ? 'on' : 'off'
+    }
+  })
+
   // Live simulated sensor state — broadcast every second by SensorSimulationService.
   // 1) Updates relay tiles and collision-detector tiles on the canvas.
   // 2) Pushes chart data points while a log-only session is actively running.

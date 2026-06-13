@@ -109,6 +109,20 @@ async function registerRealSensor(item) {
       body:    JSON.stringify({ canvasId: item.id, name: item.name, driver: item.driver }),
     })
   } catch { /* backend unreachable — will retry on next load */ }
+
+  // For collision detectors, also tell the Pi to start monitoring the GPIO pin.
+  if (item.driver === 'collision-detector' && item.pin != null) {
+    const deviceId = resolveDeviceId(item.connection)
+    if (deviceId !== null) {
+      try {
+        await fetch(`${BACKEND_URL}/api/devices/${deviceId}/di/monitor`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ pin: item.pin, canvasId: item.id }),
+        })
+      } catch { /* Pi offline — will retry on next layout load */ }
+    }
+  }
 }
 
 async function saveLayout() {
