@@ -44,7 +44,7 @@ const loginLoading   = ref(false)
 const runState = ref('idle')   // 'idle' | 'running' | 'paused'
 
 // Run info populated on Start confirm; provided to LoggingDetails
-const runInfo  = ref(null)     // { startedBy, startedAt, notes, sensorDescriptions, autoReport, overwrite }
+const runInfo  = ref(null)     // { startedBy, startedAt, notes, recipeName, status, dbRunId, selectedSensors }
 
 // ── Chart state — lives here so data survives view navigation ──────────────
 
@@ -379,6 +379,14 @@ onMounted(async () => {
     const valueMap = new Map()
     for (const r of state.relays       ?? []) valueMap.set(r.id, r.state === 'on' ? 1 : 0)
     for (const d of state.digitalInputs ?? []) valueMap.set(d.id, d.stateLabel === 'Collision!' ? 1 : 0)
+    // Real Pi relay/DI sensors aren't in SimulatedSensorState — read their current tile state directly
+    for (const s of loggedSensors.value) {
+      if (s.connection === 'Simulated') continue
+      const tile = layoutItems.value.find(i => i.id === s.id)
+      if (!tile) continue
+      if (s.driver === 'relay')              valueMap.set(s.id, tile.relayState === 'on' ? 1 : 0)
+      if (s.driver === 'collision-detector') valueMap.set(s.id, tile.value === 'Collision!' ? 1 : 0)
+    }
 
     let anyUpdate  = false
     const newDatasets = chartData.value.datasets.map(ds => {
@@ -428,6 +436,90 @@ onMounted(async () => {
 
 onUnmounted(() => connection.value?.stop())
 
+// ── Recipe execution helpers ───────────────────────────────────────────────
+
+function pushChartPoint(sensorId, value) {
+  const datasets = chartData.value.datasets
+  const idx = datasets.findIndex(ds => ds.sensorId === sensorId)
+  if (idx === -1) return
+
+  const p = n => String(n).padStart(2, '0')
+  const now = new Date()
+  const label = `${p(now.getDate())}/${p(now.getMonth() + 1)} ${p(now.getHours())}:${p(now.getMinutes())}:${p(now.getSeconds())}`
+
+  const newData = [...datasets[idx].data, value]
+  if (newData.length > MAX_CHART_POINTS) newData.shift()
+  const newDatasets = datasets.map((ds, i) => i === idx ? { ...ds, data: newData } : { ...ds })
+  const newLabels = [...chartData.value.labels, label]
+  if (newLabels.length > MAX_CHART_POINTS) newLabels.shift()
+  chartData.value = { labels: newLabels, datasets: newDatasets }
+
+  const dbRunId = runInfo.value?.dbRunId
+  if (dbRunId && authToken.value) {
+    fetch(`${BACKEND_URL}/api/run/${dbRunId}/readings`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken.value}` },
+      body:    JSON.stringify({ readings: [{ canvasId: sensorId, value }] }),
+    }).catch(() => {})
+  }
+}
+
+function resolveDeviceId(ip) {
+  for (const d of devices.value) {
+    if (d.type === 'ip') {
+      const dip = d.properties.find(p => p.name === 'IpAddress')?.value?.trim()
+      if (dip === ip) return d.id
+    }
+  }
+  return null
+}
+
+async function callRelay(sensor, state) {
+  if (!sensor) return
+  try {
+    if (sensor.connection === 'Simulated') {
+      await fetch(`${BACKEND_URL}/api/simulate/relay/${sensor.id}/${state ? 'on' : 'off'}`, {
+        method:  'POST',
+        headers: authToken.value ? { Authorization: `Bearer ${authToken.value}` } : {},
+      })
+    } else {
+      const deviceId = resolveDeviceId(sensor.connection)
+      if (deviceId !== null && sensor.pin != null) {
+        await fetch(`${BACKEND_URL}/api/devices/${deviceId}/do`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ pin: sensor.pin, state }),
+        })
+      }
+    }
+  } catch (err) {
+    addLog(`Relay command failed: ${err.message}`, 'Warning')
+  }
+  // Mirror tile state locally and push a chart point immediately.
+  // Real Pi relays have no SimulatedSensorState broadcast, so this is the only chart update path.
+  const tile = layoutItems.value.find(i => i.id === sensor.id)
+  if (tile) tile.relayState = state ? 'on' : 'off'
+  pushChartPoint(sensor.id, state ? 1 : 0)
+}
+
+async function executeRecipe(recipe, doSensor, diSensor) {
+  const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+  addLog(`Executing recipe: ${recipe.name} (${recipe.steps.length} steps)`, 'Info')
+  for (const step of recipe.steps) {
+    if (runState.value !== 'running') break
+    if (step.action === 'relay/on')  await callRelay(doSensor, true)
+    if (step.action === 'relay/off') await callRelay(doSensor, false)
+    // 'wait' and 'di/read' — DI state is live via SignalR, just observe the delay
+    await delay(step.durationMs)
+  }
+  // Ensure relay is off at end of recipe
+  if (doSensor) await callRelay(doSensor, false)
+  if (runState.value === 'running') {
+    addLog(`Recipe complete — stopping run`, 'Info')
+    handleRunCommand('stop')
+  }
+}
+
 async function handleRunCommand(cmd) {
   // 'start' shows the info modal first — don't transition until confirmed
   if (cmd === 'start') {
@@ -458,17 +550,26 @@ async function handleRunCommand(cmd) {
 }
 
 async function handleStartConfirmed(info) {
+  // Build the sensor list for logging (DO + DI, whichever are present)
+  const recipeSensors = [info.doSensor, info.diSensor].filter(Boolean)
+
   runState.value = 'running'
   runInfo.value  = {
-    ...info,
-    startedAt: new Date().toLocaleTimeString(),
-    status:    'Running',
-    dbRunId:   null,
+    startedBy:       info.startedBy,
+    startedAt:       new Date().toLocaleTimeString(),
+    notes:           info.notes,
+    recipeName:      info.recipeName,
+    status:          'Running',
+    dbRunId:         null,
+    selectedSensors: recipeSensors,
   }
   showStartRun.value = false
-  addLog(`Run started by ${info.startedBy} — Recipe: ${info.recipeName}`, 'Info')
+
+  const sensorNames = recipeSensors.map(s => s.name).join(', ') || 'none'
+  addLog(`Run started by ${info.startedBy} — Recipe: ${info.recipeName} — Sensors: ${sensorNames}`, 'Info')
 
   // Create DB run record
+  let recipe = null
   try {
     const res = await fetch(`${BACKEND_URL}/api/run/start`, {
       method:  'POST',
@@ -485,14 +586,13 @@ async function handleStartConfirmed(info) {
     if (res.ok) {
       const data = await res.json()
       runInfo.value = { ...runInfo.value, dbRunId: parseInt(data.runId) }
+      recipe = data.recipe ?? null
     }
   } catch { /* best-effort — frontend run state already set */ }
 
-  // Invoke SignalR when hub method is implemented
-  if (connection.value?.state === signalR.HubConnectionState.Connected) {
-    connection.value.invoke('RunCommand', 'start').catch(err =>
-      addLog(`RunCommand 'start' error: ${err.message}`, 'Error')
-    )
+  // Execute recipe steps (fire-and-forget — runs asynchronously while UI is live)
+  if (recipe?.steps?.length) {
+    executeRecipe(recipe, info.doSensor, info.diSensor)
   }
 }
 

@@ -174,13 +174,13 @@ function addSensor() {
   showAddSensorModal.value = true
 }
 
-async function confirmAddSensor({ name, connection, driver }) {
+async function confirmAddSensor({ name, connection, driver, pin }) {
   const id = nextId++
   const extra =
-    driver === 'relay'              ? { relayState: 'off' }        :
+    driver === 'relay'              ? { relayState: 'off' }             :
     driver === 'collision-detector' ? { value: 'No Contact', unit: '' } :
-                                      { value: '--',    unit: '' }
-  const newItem = { id, type: 'sensor', name, connection, driver, x: 80, y: 80, color: '#1e90ff', textColor: null, ...extra }
+                                      { value: '--',         unit: '' }
+  const newItem = { id, type: 'sensor', name, connection, driver, pin: pin ?? null, x: 80, y: 80, color: '#1e90ff', textColor: null, ...extra }
   items.value.push(newItem)
   showAddSensorModal.value = false
   isEditMode.value = true
@@ -364,13 +364,18 @@ async function handleRelayChange(item, state) {
     // Route to real hardware via device proxy endpoint
     const deviceId = resolveDeviceId(item.connection)
     if (deviceId !== null) {
-      try {
-        await fetch(`${BACKEND_URL}/api/devices/${deviceId}/relay/${state}`, {
-          method:  'POST',
-          headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
-        })
-      } catch (err) {
-        addLog(`Relay command failed: ${err.message}`, 'Warning')
+      if (item.pin == null) {
+        addLog(`Relay "${item.name}" has no pin configured — edit and re-add it`, 'Warning')
+      } else {
+        try {
+          await fetch(`${BACKEND_URL}/api/devices/${deviceId}/do`, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ pin: item.pin, state: state === 'on' }),
+          })
+        } catch (err) {
+          addLog(`Relay command failed: ${err.message}`, 'Warning')
+        }
       }
     }
   }

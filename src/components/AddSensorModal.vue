@@ -9,6 +9,11 @@ const devices     = inject('devices', ref([]))
 const displayName        = ref('')
 const selectedConnection = ref('Simulated')
 const selectedDriver     = ref('')
+const pinNumber          = ref(18)
+
+const showPinField = computed(() =>
+  selectedConnection.value !== 'Simulated' && selectedDriver.value === 'relay'
+)
 
 // Build connection list from devices + Simulated
 const connections = computed(() => {
@@ -65,7 +70,8 @@ onMounted(async () => {
 function submit() {
   const name = displayName.value.trim()
   if (!name) return
-  emit('add', { name, connection: selectedConnection.value, driver: selectedDriver.value })
+  const pin = showPinField.value ? pinNumber.value : null
+  emit('add', { name, connection: selectedConnection.value, driver: selectedDriver.value, pin })
 }
 
 function onKeydown(e) {
@@ -100,6 +106,17 @@ function onKeydown(e) {
         <select class="modal-input" v-model="selectedDriver">
           <option v-for="s in availableTypes" :key="s.id" :value="s.id">{{ s.name }}</option>
         </select>
+      </div>
+
+      <div v-if="showPinField" class="modal-row">
+        <label class="modal-label">Pin #:</label>
+        <input
+          class="modal-input"
+          type="number"
+          v-model.number="pinNumber"
+          min="1"
+          placeholder="Physical pin number (e.g. 18)"
+        />
       </div>
 
       <div class="modal-footer">

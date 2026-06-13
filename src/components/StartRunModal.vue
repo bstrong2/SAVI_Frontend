@@ -1,14 +1,14 @@
 <script setup>
-import { ref, computed, inject, onMounted } from 'vue'
+import { ref, computed, inject, watch, onMounted } from 'vue'
 
 const emit = defineEmits(['confirm', 'cancel'])
 
 const BACKEND_URL = inject('BACKEND_URL', 'http://localhost:5176')
 const currentUser = inject('currentUser')
+const layoutItems = inject('layoutItems', ref([]))
 
 const notes          = ref('')
-const autoReport     = ref(false)
-const selectedRecipe = ref('')   // recipe name string
+const selectedRecipe = ref('')
 
 // Recipes fetched from GET /api/recipes
 const recipes  = ref([])
@@ -37,12 +37,52 @@ const startedBy = computed(() =>
     : 'Unknown'
 )
 
-// Description of whichever recipe is currently selected in the dropdown
-const selectedRecipeDescription = computed(() =>
-  recipes.value.find(r => r.name === selectedRecipe.value)?.description ?? ''
+const selectedRecipeObj = computed(() =>
+  recipes.value.find(r => r.name === selectedRecipe.value) ?? null
 )
 
-const canSubmit = computed(() => !!selectedRecipe.value)
+const selectedRecipeDescription = computed(() =>
+  selectedRecipeObj.value?.description ?? ''
+)
+
+// DO = relay tiles, DI = collision-detector tiles from the canvas
+const doSensors = computed(() =>
+  layoutItems.value.filter(i => i.type === 'sensor' && i.driver === 'relay')
+)
+const diSensors = computed(() =>
+  layoutItems.value.filter(i => i.type === 'sensor' && i.driver === 'collision-detector')
+)
+
+const selectedDoId = ref(null)
+const selectedDiId = ref(null)
+
+// Default selections whenever the sensor lists change
+watch(doSensors, (list) => {
+  if (list.length && !list.find(s => s.id === selectedDoId.value))
+    selectedDoId.value = list[0].id
+}, { immediate: true })
+
+watch(diSensors, (list) => {
+  if (list.length && !list.find(s => s.id === selectedDiId.value))
+    selectedDiId.value = list[0].id
+}, { immediate: true })
+
+const selectedDoSensor = computed(() =>
+  doSensors.value.find(s => s.id === selectedDoId.value) ?? null
+)
+const selectedDiSensor = computed(() =>
+  diSensors.value.find(s => s.id === selectedDiId.value) ?? null
+)
+
+const needsDo = computed(() => !!selectedRecipeObj.value?.requiresDo)
+const needsDi = computed(() => !!selectedRecipeObj.value?.requiresDi)
+
+const canSubmit = computed(() => {
+  if (!selectedRecipe.value) return false
+  if (needsDo.value && !selectedDoSensor.value) return false
+  if (needsDi.value && !selectedDiSensor.value) return false
+  return true
+})
 
 function submit() {
   if (!canSubmit.value) return
@@ -50,7 +90,8 @@ function submit() {
     startedBy:  startedBy.value,
     notes:      notes.value,
     recipeName: selectedRecipe.value,
-    autoReport: autoReport.value,
+    doSensor:   needsDo.value ? selectedDoSensor.value : null,
+    diSensor:   needsDi.value ? selectedDiSensor.value : null,
   })
 }
 
@@ -83,14 +124,14 @@ function onKeydown(e) {
         />
       </div>
 
-      <!-- Recipe dropdown -->
+      <!-- Recipe section -->
       <div class="start-run-section">
         <div class="start-run-section-label">Recipe</div>
 
         <div v-if="loading" class="recipe-status">Loading recipes…</div>
         <div v-else-if="fetchErr" class="recipe-status recipe-error">Could not load recipes from backend.</div>
         <div v-else>
-          <!-- Visible listbox — all recipes shown at once -->
+          <!-- Listbox — all recipes shown at once -->
           <select
             class="modal-input recipe-listbox"
             v-model="selectedRecipe"
@@ -99,23 +140,50 @@ function onKeydown(e) {
             <option v-for="r in recipes" :key="r.name" :value="r.name">{{ r.name }}</option>
           </select>
 
-          <!-- Description of the selected recipe -->
+          <!-- Description -->
           <div class="recipe-desc-label">Description:</div>
           <textarea
             class="modal-input recipe-description"
             :value="selectedRecipeDescription"
-            rows="3"
+            rows="7"
             readonly
             placeholder="Select a recipe to see its description."
           />
-        </div>
-      </div>
 
-      <!-- Auto Report checkbox -->
-      <div class="start-run-checks">
-        <label class="start-run-check-label">
-          <input type="checkbox" v-model="autoReport" /> Auto Report
-        </label>
+          <!-- DO sensor selector -->
+          <template v-if="needsDo">
+            <div class="sensor-select-label">
+              Digital Output (Relay):
+              <span v-if="doSensors.length === 0" class="sensor-warn">No relay tiles on canvas</span>
+            </div>
+            <select
+              class="modal-input"
+              v-model="selectedDoId"
+              :disabled="doSensors.length === 0"
+            >
+              <option v-for="s in doSensors" :key="s.id" :value="s.id">
+                {{ s.name }} ({{ s.connection === 'Simulated' ? 'SIM' : s.connection }})
+              </option>
+            </select>
+          </template>
+
+          <!-- DI sensor selector -->
+          <template v-if="needsDi">
+            <div class="sensor-select-label">
+              Digital Input (Collision Detector):
+              <span v-if="diSensors.length === 0" class="sensor-warn">No DI tiles on canvas</span>
+            </div>
+            <select
+              class="modal-input"
+              v-model="selectedDiId"
+              :disabled="diSensors.length === 0"
+            >
+              <option v-for="s in diSensors" :key="s.id" :value="s.id">
+                {{ s.name }} ({{ s.connection === 'Simulated' ? 'SIM' : s.connection }})
+              </option>
+            </select>
+          </template>
+        </div>
       </div>
 
       <!-- Footer -->
@@ -129,6 +197,10 @@ function onKeydown(e) {
 </template>
 
 <style scoped>
+.modal-overlay {
+  padding-bottom: 12vh;
+}
+
 .start-run-dialog {
   width: 460px;
   max-height: 80vh;
@@ -179,7 +251,6 @@ function onKeydown(e) {
 .recipe-listbox {
   width: 100%;
   margin-bottom: 8px;
-  /* override the single-line select height so all options show */
   height: auto;
   padding: 0;
 }
@@ -201,6 +272,8 @@ function onKeydown(e) {
 
 .recipe-description {
   width: 100%;
+  height: auto;
+  min-height: 60px;
   resize: none;
   font-size: 12px;
   color: var(--text-secondary);
@@ -208,22 +281,27 @@ function onKeydown(e) {
   cursor: default;
   font-style: italic;
   line-height: 1.5;
+  margin-bottom: 10px;
 }
 
-/* ── Checkboxes ── */
-.start-run-checks {
-  display: flex;
-  gap: 22px;
-  margin: 10px 0 4px;
-}
-
-.start-run-check-label {
+/* ── Sensor selectors ── */
+.sensor-select-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin: 8px 0 4px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--text-primary);
-  cursor: pointer;
-  user-select: none;
+  gap: 8px;
+}
+
+.sensor-warn {
+  font-size: 11px;
+  font-weight: 400;
+  text-transform: none;
+  color: #f57c00;
+  font-style: italic;
 }
 </style>
