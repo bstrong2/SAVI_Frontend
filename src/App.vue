@@ -19,7 +19,16 @@ const connection       = ref(null)
 const connectionStatus = ref('Disconnected')
 const activeView       = ref('device-layout')
 const logEntries       = ref([])
-const maxLogEntries    = ref(1000)
+const generalSettings  = ref({
+  host:            'localhost',
+  port:            5176,
+  reconnectOnLoss: true,
+  logLevel:        'Info',
+  maxEntries:      1000,
+  autoScroll:      true,
+  timeoutMs:       5000,
+})
+const maxLogEntries = computed(() => generalSettings.value.maxEntries)
 const isDark              = ref(false)
 const logHeight           = ref(160)
 const chartPlotInterval   = ref(3)   // seconds between chart data points
@@ -108,7 +117,32 @@ watch(loggedSensors, (sensors) => {
 // Tracks the last time a chart point was written; reset when the interval changes
 // so the new interval takes effect immediately rather than waiting for the old one to expire.
 let lastChartPlotMs = 0
-watch(chartPlotInterval, () => { lastChartPlotMs = 0 })
+
+// Persist run state across refreshes so the ribbon reflects the correct buttons on reload.
+watch(
+  [runState, runInfo],
+  ([state, info]) => {
+    if (state !== 'idle' && info) {
+      localStorage.setItem('savi-run', JSON.stringify({ runState: state, runInfo: info }))
+    } else {
+      localStorage.removeItem('savi-run')
+    }
+  },
+  { deep: true }
+)
+
+function syncPollInterval(seconds) {
+  fetch(`${BACKEND_URL}/api/settings/poll-interval`, {
+    method:  'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ intervalSeconds: seconds }),
+  }).catch(() => {})
+}
+
+watch(chartPlotInterval, (seconds) => {
+  lastChartPlotMs = 0
+  syncPollInterval(seconds)
+})
 
 // Auth state — token kept in memory only (not localStorage)
 const authToken   = ref(null)
@@ -158,6 +192,7 @@ function saveAppSettings() {
     body:    JSON.stringify({
       theme:             isDark.value ? 'dark' : 'light',
       chartPlotInterval: chartPlotInterval.value,
+      generalSettings:   generalSettings.value,
     }),
   }).catch(() => {})
 }
@@ -165,7 +200,8 @@ function saveAppSettings() {
 provide('connection',    connection)
 provide('logEntries',    logEntries)
 provide('addLog',        addLog)
-provide('maxLogEntries', maxLogEntries)
+provide('maxLogEntries',    maxLogEntries)
+provide('generalSettings', generalSettings)
 provide('devices',       devices)
 provide('layoutItems',   layoutItems)
 provide('authToken',     authToken)
@@ -185,6 +221,32 @@ function addLog(message, level = 'Info') {
   }
 }
 
+async function restoreRunState() {
+  const stored = localStorage.getItem('savi-run')
+  if (!stored) return
+  try {
+    const { runState: savedState, runInfo: savedInfo } = JSON.parse(stored)
+    const dbRunId = savedInfo?.dbRunId
+    if (!dbRunId) { localStorage.removeItem('savi-run'); return }
+
+    const res = await fetch(`${BACKEND_URL}/api/runs/${dbRunId}`)
+    if (res.ok) {
+      const data = await res.json()
+      if (data.status === 'Running') {
+        runInfo.value  = savedInfo
+        runState.value = savedState
+        addLog(`Run #${dbRunId} restored — logging is active`, 'Info')
+      } else {
+        localStorage.removeItem('savi-run')
+      }
+    } else {
+      localStorage.removeItem('savi-run')
+    }
+  } catch {
+    localStorage.removeItem('savi-run')
+  }
+}
+
 async function loadTheme() {
   try {
     const res = await fetch(`${BACKEND_URL}/api/settings`)
@@ -195,7 +257,13 @@ async function loadTheme() {
     isDark.value = theme === 'dark'
     document.documentElement.dataset.theme = isDark.value ? 'dark' : ''
     const saved = data?.chartPlotInterval
-    if (typeof saved === 'number' && saved >= 1) chartPlotInterval.value = Math.round(saved)
+    if (typeof saved === 'number' && saved >= 1) {
+      chartPlotInterval.value = Math.round(saved)
+      syncPollInterval(chartPlotInterval.value)
+    }
+    if (data?.generalSettings) {
+      generalSettings.value = { ...generalSettings.value, ...data.generalSettings }
+    }
   } catch { /* backend unreachable — honour cached value already applied by index.html */ }
 }
 
@@ -255,6 +323,7 @@ function handleLogout() {
 
 onMounted(async () => {
   loadTheme()
+  await restoreRunState()
 
   // Load saved device configs so they're available in every view immediately
   try {
@@ -378,7 +447,7 @@ async function handleRunCommand(cmd) {
   if (cmd === 'stop') {
     const dbRunId = runInfo.value?.dbRunId
     runState.value = 'idle'
-    if (runInfo.value) runInfo.value = { ...runInfo.value, status: 'Stopped' }
+    if (runInfo.value) runInfo.value = { ...runInfo.value, status: 'Stopped', selectedSensors: [] }
     if (dbRunId) {
       fetch(`${BACKEND_URL}/api/run/${dbRunId}/stop`, {
         method:  'POST',
@@ -519,7 +588,7 @@ function onSplitterMouseDown(e) {
     <div class="h-splitter" @mousedown="onSplitterMouseDown" />
 
     <div class="log-area" :style="{ height: logHeight + 'px' }">
-      <LogView :entries="logEntries" />
+      <LogView :entries="logEntries" :auto-scroll="generalSettings.autoScroll" />
     </div>
 
     <LoginModal

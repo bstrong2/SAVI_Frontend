@@ -2,24 +2,26 @@
 import { ref, computed, watch, inject, onMounted, onUnmounted, nextTick } from 'vue'
 
 const BACKEND_URL      = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
-const maxLogEntries    = inject('maxLogEntries')
-const authToken        = inject('authToken')
-const addLog           = inject('addLog')
+const authToken         = inject('authToken')
+const addLog            = inject('addLog')
 const chartPlotInterval = inject('chartPlotInterval', ref(3))
-const saveAppSettings  = inject('saveAppSettings', () => {})
+const saveAppSettings   = inject('saveAppSettings', () => {})
+const generalSettings   = inject('generalSettings', ref({
+  host: 'localhost', port: 5176, reconnectOnLoss: true,
+  logLevel: 'Info', maxEntries: 1000, autoScroll: true, timeoutMs: 5000,
+}))
 
 const settings = ref([
-  { id: 1,  depth: 0, name: 'Connection',           value: '',          description: 'Connection settings',              type: 'group',  expanded: true },
-  { id: 2,  depth: 1, name: 'Host',                 value: 'localhost', description: 'Backend host address',             type: 'string', editing: false },
-  { id: 3,  depth: 1, name: 'Port',                 value: 5176,        description: 'Backend port number',              type: 'int',    editing: false },
-  { id: 4,  depth: 1, name: 'Reconnect on Loss',    value: true,        description: 'Auto-reconnect when disconnected', type: 'bool',   editing: false },
-  { id: 5,  depth: 0, name: 'Logging',              value: '',          description: 'Logging settings',                 type: 'group',  expanded: true },
-  { id: 6,  depth: 1, name: 'Log Level',            value: 'Info',      description: 'Minimum log level to display',     type: 'string', editing: false },
-  { id: 7,  depth: 1, name: 'Max Entries',          value: maxLogEntries?.value ?? 1000, description: 'Maximum log rows to keep in view', type: 'int',    editing: false },
-  { id: 8,  depth: 1, name: 'Auto Scroll',          value: true,        description: 'Auto-scroll log to newest entry',  type: 'bool',   editing: false },
-  { id: 9,  depth: 0, name: 'Acquisition',          value: '',          description: 'Data acquisition settings',        type: 'group',  expanded: true },
-  { id: 10, depth: 1, name: 'Poll Interval (ms)',   value: 1000,        description: 'How often to poll sensors',        type: 'int',    editing: false },
-  { id: 11, depth: 1, name: 'Timeout (ms)',         value: 5000,        description: 'Sensor read timeout',              type: 'int',    editing: false },
+  { id: 1,  depth: 0, name: 'Connection',        value: '',                                  description: 'Connection settings',              type: 'group',  expanded: true },
+  { id: 2,  depth: 1, name: 'Host',              value: generalSettings.value.host,          description: 'Backend host address',             type: 'string', editing: false },
+  { id: 3,  depth: 1, name: 'Port',              value: generalSettings.value.port,          description: 'Backend port number',              type: 'int',    editing: false },
+  { id: 4,  depth: 1, name: 'Reconnect on Loss', value: generalSettings.value.reconnectOnLoss, description: 'Auto-reconnect when disconnected', type: 'bool',   editing: false },
+  { id: 5,  depth: 0, name: 'Logging',           value: '',                                  description: 'Logging settings',                 type: 'group',  expanded: true },
+  { id: 6,  depth: 1, name: 'Log Level',         value: generalSettings.value.logLevel,      description: 'Minimum log level to display',     type: 'string', editing: false },
+  { id: 7,  depth: 1, name: 'Max Entries',       value: generalSettings.value.maxEntries,    description: 'Maximum log rows to keep in view', type: 'int',    editing: false },
+  { id: 8,  depth: 1, name: 'Auto Scroll',       value: generalSettings.value.autoScroll,    description: 'Auto-scroll log to newest entry',  type: 'bool',   editing: false },
+  { id: 9,  depth: 0, name: 'Acquisition',       value: '',                                  description: 'Data acquisition settings',        type: 'group',  expanded: true },
+  { id: 11, depth: 1, name: 'Timeout (ms)',      value: generalSettings.value.timeoutMs,     description: 'Sensor read timeout',              type: 'int',    editing: false },
 ])
 
 const visibleSettings = computed(() => {
@@ -36,11 +38,21 @@ const visibleSettings = computed(() => {
   return result
 })
 
-// Sync Max Entries setting → App.vue's maxLogEntries ref
-watch(
-  () => settings.value.find(s => s.id === 7)?.value,
-  val => { if (maxLogEntries && val !== undefined) maxLogEntries.value = Number(val) }
-)
+// Sync any changed setting row back into the persistent generalSettings ref in App.vue.
+// This keeps values alive across view navigation without requiring a Save click.
+watch(settings, (rows) => {
+  const g = generalSettings.value
+  const v = id => rows.find(s => s.id === id)?.value
+  generalSettings.value = {
+    host:            v(2)  ?? g.host,
+    port:            Number(v(3))  || g.port,
+    reconnectOnLoss: v(4)  ?? g.reconnectOnLoss,
+    logLevel:        v(6)  ?? g.logLevel,
+    maxEntries:      Number(v(7))  || g.maxEntries,
+    autoScroll:      v(8)  ?? g.autoScroll,
+    timeoutMs:       Number(v(11)) || g.timeoutMs,
+  }
+}, { deep: true })
 
 // Chart plot interval — writable computed so v-model in the template updates
 // the App.vue ref immediately (live effect) and persists via saveAppSettings.
@@ -161,6 +173,7 @@ async function saveSettings() {
       body: JSON.stringify({ devices: devices.value }),
     })
     if (res.ok) {
+      saveAppSettings()
       updateSavedSnapshot()
       addLog?.('Settings saved successfully', 'Info')
     } else {
@@ -321,7 +334,7 @@ async function loadSettings() {
                 style="width:90px"
               />
             </td>
-            <td>How often a data point is added to the live chart (1 s – 3600 s)</td>
+            <td>Controls how often sensor data is plotted on the chart and saved to the database (1 s – 3600 s)</td>
           </tr>
 
         </tbody>

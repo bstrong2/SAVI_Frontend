@@ -2,7 +2,8 @@
 import { ref, watch, nextTick } from 'vue'
 
 const props = defineProps({
-  entries: { type: Array, default: () => [] },
+  entries:    { type: Array,   default: () => [] },
+  autoScroll: { type: Boolean, default: true },
 })
 
 const listEnd = ref(null)
@@ -10,6 +11,7 @@ const listEnd = ref(null)
 watch(
   () => props.entries.length,
   async () => {
+    if (!props.autoScroll) return
     await nextTick()
     listEnd.value?.scrollIntoView({ behavior: 'smooth' })
   }

@@ -1,7 +1,8 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, inject } from 'vue'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
+const addLog      = inject('addLog', (msg, level) => console.error(msg))
 
 const emit = defineEmits(['close'])
 
@@ -27,64 +28,74 @@ async function generateReport() {
   const r   = selectedRun.value
   const BOM = '﻿'
 
-  // Fetch full run details (includes sensor readings)
-  let readings = []
   try {
-    const res = await fetch(`${BACKEND_URL}/api/runs/${r.id}`)
-    if (res.ok) readings = (await res.json()).readings ?? []
-  } catch { /* backend unreachable — generate without readings */ }
+    // Fetch full run details (includes sensor readings)
+    let readings = []
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/runs/${r.id}`)
+      if (res.ok) {
+        readings = (await res.json()).readings ?? []
+      } else {
+        addLog(`Report: failed to fetch run data (HTTP ${res.status})`, 'Warning')
+      }
+    } catch (err) {
+      addLog(`Report: could not reach backend — ${err.message}`, 'Error')
+    }
 
-  const q        = v => `"${String(v ?? '').replace(/"/g, '""')}"`
-  const baseName = r.name.replace(/\s+/g, '_')
+    const q        = v => `"${String(v ?? '').replace(/"/g, '""')}"`
+    const baseName = r.name.replace(/\s+/g, '_')
 
-  const metaRows = [
-    ['Run',        q(r.name)],
-    ['Status',     q(r.status ?? '')],
-    ['Started By', q(r.startedBy)],
-    ['Start Time', q(r.startTime)],
-    ['End Time',   q(r.endTime ?? '(still running)')],
-    ['Comments',   q(r.comments || '')],
-  ]
+    const metaRows = [
+      ['Run',        q(r.name)],
+      ['Status',     q(r.status ?? '')],
+      ['Started By', q(r.startedBy)],
+      ['Start Time', q(r.startTime)],
+      ['End Time',   q(r.endTime ?? '(still running)')],
+      ['Comments',   q(r.comments || '')],
+    ]
 
-  function sensorLines(sensorName, sensorReadings) {
-    return [
-      metaRows[0],
-      ['Sensor', q(sensorName)],
-      ...metaRows.slice(1),
-      [],
-      ['Time', 'Value'],
-      ...sensorReadings.map(rd => [q(rd.insertTime), rd.value]),
-    ].map(row => row.join(',')).join('\r\n')
-  }
+    function sensorLines(sensorName, sensorReadings) {
+      return [
+        metaRows[0],
+        ['Sensor', q(sensorName)],
+        ...metaRows.slice(1),
+        [],
+        ['Time', 'Value'],
+        ...sensorReadings.map(rd => [q(rd.insertTime), rd.value]),
+      ].map(row => row.join(',')).join('\r\n')
+    }
 
-  function combinedLines() {
-    return [
-      ...metaRows,
-      [],
-      ['Time', 'Sensor', 'Value'],
-      ...readings.map(rd => [q(rd.insertTime), q(rd.sensorName), rd.value]),
-    ].map(row => row.join(',')).join('\r\n')
-  }
+    function combinedLines() {
+      return [
+        ...metaRows,
+        [],
+        ['Time', 'Sensor', 'Value'],
+        ...readings.map(rd => [q(rd.insertTime), q(rd.sensorName), rd.value]),
+      ].map(row => row.join(',')).join('\r\n')
+    }
 
-  function triggerDownload(content, filename) {
-    const blob = new Blob([BOM + content], { type: 'text/csv;charset=utf-8;' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url; a.download = filename
-    document.body.appendChild(a); a.click()
-    document.body.removeChild(a); URL.revokeObjectURL(url)
-  }
+    function triggerDownload(content, filename) {
+      const blob = new Blob([BOM + content], { type: 'text/csv;charset=utf-8;' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url; a.download = filename
+      document.body.appendChild(a); a.click()
+      document.body.removeChild(a); URL.revokeObjectURL(url)
+    }
 
-  const sensorNames = [...new Set(readings.map(rd => rd.sensorName))]
+    const sensorNames = [...new Set(readings.map(rd => rd.sensorName))]
 
-  if (separateSensorFiles.value && sensorNames.length > 1) {
-    sensorNames.forEach((sensorName, i) => {
-      const safeName       = sensorName.replace(/[/\\:*?"<>|]/g, '').replace(/\s+/g, '_')
-      const sensorReadings = readings.filter(rd => rd.sensorName === sensorName)
-      setTimeout(() => triggerDownload(sensorLines(sensorName, sensorReadings), `${baseName}_report_${safeName}.csv`), i * 200)
-    })
-  } else {
-    triggerDownload(combinedLines(), `${baseName}_report.csv`)
+    if (separateSensorFiles.value && sensorNames.length > 1) {
+      sensorNames.forEach((sensorName, i) => {
+        const safeName       = sensorName.replace(/[/\\:*?"<>|]/g, '').replace(/\s+/g, '_')
+        const sensorReadings = readings.filter(rd => rd.sensorName === sensorName)
+        setTimeout(() => triggerDownload(sensorLines(sensorName, sensorReadings), `${baseName}_report_${safeName}.csv`), i * 200)
+      })
+    } else {
+      triggerDownload(combinedLines(), `${baseName}_report.csv`)
+    }
+  } catch (err) {
+    addLog(`Report generation failed: ${err.message}`, 'Error')
   }
 }
 </script>
