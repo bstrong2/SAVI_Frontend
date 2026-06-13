@@ -1,35 +1,91 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
 
 const emit = defineEmits(['close'])
 
-const runs = ref([
-  { id: 1, name: 'Run 001', comments: 'Initial baseline test run.', startTime: '2026-06-01 08:00:00', endTime: '2026-06-01 09:45:00', startedBy: 'admin' },
-  { id: 2, name: 'Run 002', comments: 'Pressure validation — increased flow rate by 10%.', startTime: '2026-06-02 13:30:00', endTime: '2026-06-02 15:10:00', startedBy: 'operator1' },
-  { id: 3, name: 'Run 003', comments: '', startTime: '2026-06-04 09:00:00', endTime: '2026-06-04 10:22:00', startedBy: 'admin' },
-])
+const runs                = ref([])
+const loading             = ref(true)
+const separateSensorFiles = ref(false)
 
 const selectedRun = ref(null)
 
-function generateReport() {
+onMounted(async () => {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/runs`)
+    if (res.ok) {
+      runs.value = await res.json()
+      selectedRun.value = runs.value[0] ?? null
+    }
+  } catch { /* backend unreachable */ }
+  finally { loading.value = false }
+})
+
+async function generateReport() {
   if (!selectedRun.value) return
-  const r = selectedRun.value
-  const lines = [
-    'SAVI Run Report',
-    '===============',
-    `Run:        ${r.name}`,
-    `Started By: ${r.startedBy}`,
-    `Start Time: ${r.startTime}`,
-    `End Time:   ${r.endTime}`,
-    `Comments:   ${r.comments || '(none)'}`,
+  const r   = selectedRun.value
+  const BOM = '﻿'
+
+  // Fetch full run details (includes sensor readings)
+  let readings = []
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/runs/${r.id}`)
+    if (res.ok) readings = (await res.json()).readings ?? []
+  } catch { /* backend unreachable — generate without readings */ }
+
+  const q        = v => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const baseName = r.name.replace(/\s+/g, '_')
+
+  const metaRows = [
+    ['Run',        q(r.name)],
+    ['Status',     q(r.status ?? '')],
+    ['Started By', q(r.startedBy)],
+    ['Start Time', q(r.startTime)],
+    ['End Time',   q(r.endTime ?? '(still running)')],
+    ['Comments',   q(r.comments || '')],
   ]
-  const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href     = url
-  a.download = `${r.name.replace(/\s+/g, '_')}_report.txt`
-  a.click()
-  URL.revokeObjectURL(url)
+
+  function sensorLines(sensorName, sensorReadings) {
+    return [
+      metaRows[0],
+      ['Sensor', q(sensorName)],
+      ...metaRows.slice(1),
+      [],
+      ['Time', 'Value'],
+      ...sensorReadings.map(rd => [q(rd.insertTime), rd.value]),
+    ].map(row => row.join(',')).join('\r\n')
+  }
+
+  function combinedLines() {
+    return [
+      ...metaRows,
+      [],
+      ['Time', 'Sensor', 'Value'],
+      ...readings.map(rd => [q(rd.insertTime), q(rd.sensorName), rd.value]),
+    ].map(row => row.join(',')).join('\r\n')
+  }
+
+  function triggerDownload(content, filename) {
+    const blob = new Blob([BOM + content], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url; a.download = filename
+    document.body.appendChild(a); a.click()
+    document.body.removeChild(a); URL.revokeObjectURL(url)
+  }
+
+  const sensorNames = [...new Set(readings.map(rd => rd.sensorName))]
+
+  if (separateSensorFiles.value && sensorNames.length > 1) {
+    sensorNames.forEach((sensorName, i) => {
+      const safeName       = sensorName.replace(/[/\\:*?"<>|]/g, '').replace(/\s+/g, '_')
+      const sensorReadings = readings.filter(rd => rd.sensorName === sensorName)
+      setTimeout(() => triggerDownload(sensorLines(sensorName, sensorReadings), `${baseName}_report_${safeName}.csv`), i * 200)
+    })
+  } else {
+    triggerDownload(combinedLines(), `${baseName}_report.csv`)
+  }
 }
 </script>
 
@@ -51,7 +107,8 @@ function generateReport() {
             >
               {{ run.name }}
             </div>
-            <div v-if="runs.length === 0" class="run-list-empty">No runs available</div>
+            <div v-if="loading" class="run-list-empty">Loading…</div>
+            <div v-else-if="runs.length === 0" class="run-list-empty">No runs available</div>
           </div>
         </div>
 
@@ -59,26 +116,27 @@ function generateReport() {
         <div class="report-group">
           <div class="report-group-header">Run Details</div>
           <div class="run-details">
-            <template v-if="selectedRun">
-              <label class="detail-label">Comments:</label>
-              <textarea class="detail-input detail-textarea" readonly :value="selectedRun.comments" />
+            <label class="detail-label">Comments:</label>
+            <textarea class="detail-input detail-textarea" readonly :value="selectedRun?.comments ?? ''" />
 
-              <label class="detail-label">Start Time:</label>
-              <input class="detail-input" readonly :value="selectedRun.startTime" />
+            <label class="detail-label">Start Time:</label>
+            <input class="detail-input" readonly :value="selectedRun?.startTime ?? ''" />
 
-              <label class="detail-label">End Time:</label>
-              <input class="detail-input" readonly :value="selectedRun.endTime" />
+            <label class="detail-label">End Time:</label>
+            <input class="detail-input" readonly :value="selectedRun?.endTime ?? ''" />
 
-              <label class="detail-label">Started By:</label>
-              <input class="detail-input" readonly :value="selectedRun.startedBy" />
-            </template>
-            <div v-else class="run-details-empty">Select a run to view details</div>
+            <label class="detail-label">Started By:</label>
+            <input class="detail-input" readonly :value="selectedRun?.startedBy ?? ''" />
           </div>
         </div>
       </div>
 
       <!-- Footer buttons -->
       <div class="report-footer">
+        <label class="separate-files-label">
+          <input type="checkbox" v-model="separateSensorFiles" />
+          Separate Sensor Files
+        </label>
         <button class="btn btn-primary" :disabled="!selectedRun" @click="generateReport">Generate Report</button>
         <button class="btn btn-secondary" @click="emit('close')">Close</button>
       </div>
@@ -193,9 +251,20 @@ function generateReport() {
 /* Footer */
 .report-footer {
   display: flex;
+  align-items: center;
   gap: 8px;
-  justify-content: flex-end;
   padding: 10px 14px;
   border-top: 1px solid var(--border-color);
 }
+
+.separate-files-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+}
+
 </style>

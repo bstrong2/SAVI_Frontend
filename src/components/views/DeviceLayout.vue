@@ -65,15 +65,37 @@ async function loadLayout() {
         if (item.type !== 'sensor') return
         if (item.driver === 'relay' && item.relayState == null)
           item.relayState = 'off'
-        if (item.driver === 'collision-detector' && (item.value == null || item.value === '--'))
-          item.value = 'CLEAR'
+        if (item.driver === 'collision-detector' && (item.value == null || item.value === '--' || item.value === 'CLEAR'))
+          item.value = 'No Contact'
       })
       items.value = data
       nextId = Math.max(...data.map(i => i.id), 0) + 1
+
+      // Register all simulated sensors in the backend service so their state
+      // is authoritative there; update local state from whatever the service returns.
+      for (const item of items.value.filter(i => i.type === 'sensor' && i.connection === 'Simulated')) {
+        await registerSimulatedSensor(item)
+      }
     }
   } catch {
     // Backend unreachable — start with empty canvas
   }
+}
+
+// Register a simulated sensor in the backend SensorSimulationService.
+// On success, syncs local tile state from the backend's current value.
+async function registerSimulatedSensor(item) {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/simulate/register`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ canvasId: item.id, name: item.name, driver: item.driver }),
+    })
+    if (!res.ok) return
+    const data = await res.json()
+    if (item.driver === 'relay')              item.relayState = data.state       // 'on' | 'off'
+    if (item.driver === 'collision-detector') item.value      = data.stateLabel  // 'TRIGGERED' | 'CLEAR'
+  } catch { /* backend unreachable — local state stands */ }
 }
 
 async function saveLayout() {
@@ -152,16 +174,20 @@ function addSensor() {
   showAddSensorModal.value = true
 }
 
-function confirmAddSensor({ name, connection, driver }) {
+async function confirmAddSensor({ name, connection, driver }) {
   const id = nextId++
   const extra =
     driver === 'relay'              ? { relayState: 'off' }        :
-    driver === 'collision-detector' ? { value: 'CLEAR', unit: '' } :
+    driver === 'collision-detector' ? { value: 'No Contact', unit: '' } :
                                       { value: '--',    unit: '' }
-  items.value.push({ id, type: 'sensor', name, connection, driver, x: 80, y: 80, color: '#1e90ff', textColor: null, ...extra })
+  const newItem = { id, type: 'sensor', name, connection, driver, x: 80, y: 80, color: '#1e90ff', textColor: null, ...extra }
+  items.value.push(newItem)
   showAddSensorModal.value = false
   isEditMode.value = true
   saveLayout()
+
+  // Register the new simulated sensor immediately so the backend is aware of it
+  if (connection === 'Simulated') await registerSimulatedSensor(newItem)
 }
 
 function addRectangle() {
@@ -322,24 +348,49 @@ function resolveDeviceId(connection) {
 }
 
 async function handleRelayChange(item, state) {
-  item.relayState = state
-  const deviceId = resolveDeviceId(item.connection)
-  if (deviceId !== null) {
+  item.relayState = state  // optimistic local update
+
+  if (item.connection === 'Simulated') {
+    // Route to backend simulation service
     try {
-      await fetch(`${BACKEND_URL}/api/devices/${deviceId}/relay/${state}`, {
-        method: 'POST',
+      await fetch(`${BACKEND_URL}/api/simulate/relay/${item.id}/${state}`, {
+        method:  'POST',
         headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
       })
     } catch (err) {
-      addLog(`Relay command failed: ${err.message}`, 'Warning')
+      addLog(`Simulated relay command failed: ${err.message}`, 'Warning')
+    }
+  } else {
+    // Route to real hardware via device proxy endpoint
+    const deviceId = resolveDeviceId(item.connection)
+    if (deviceId !== null) {
+      try {
+        await fetch(`${BACKEND_URL}/api/devices/${deviceId}/relay/${state}`, {
+          method:  'POST',
+          headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
+        })
+      } catch (err) {
+        addLog(`Relay command failed: ${err.message}`, 'Warning')
+      }
     }
   }
   saveLayout()
 }
 
-// Simulated collision detector toggle
-function toggleCollisionSim(item) {
-  item.value = item.value === 'TRIGGERED' ? 'CLEAR' : 'TRIGGERED'
+// Simulated collision detector toggle — calls backend to keep state authoritative there
+async function toggleCollisionSim(item) {
+  const nowTriggered = item.value !== 'Collision!'
+  const endpoint     = nowTriggered ? 'trigger' : 'release'
+  item.value = nowTriggered ? 'Collision!' : 'No Contact'  // optimistic update
+
+  try {
+    await fetch(`${BACKEND_URL}/api/simulate/di/${item.id}/${endpoint}`, {
+      method:  'POST',
+      headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
+    })
+  } catch (err) {
+    addLog(`Simulated DI command failed: ${err.message}`, 'Warning')
+  }
   saveLayout()
 }
 
@@ -538,20 +589,20 @@ function onCanvasClick(e) {
                 class="collision-state"
                 :style="{
                   color: item.textColor ||
-                    (item.value === 'TRIGGERED' ? '#ff5252' : '#69f0ae')
+                    (item.value === 'Collision!' ? '#ff5252' : '#69f0ae')
                 }"
               >
                 <span class="collision-dot" />
-                {{ item.value ?? 'CLEAR' }}
+                {{ item.value ?? 'No Contact' }}
               </div>
               <!-- Simulate trigger/release — only for Simulated connection + operators -->
               <button
                 v-if="item.connection === 'Simulated' && canOperate"
                 class="sim-trigger-btn"
-                :class="{ 'sim-trigger-btn--active': item.value === 'TRIGGERED' }"
+                :class="{ 'sim-trigger-btn--active': item.value === 'Collision!' }"
                 @mousedown.stop
                 @click.stop="toggleCollisionSim(item)"
-              >{{ item.value === 'TRIGGERED' ? 'Release' : 'Trigger' }}</button>
+              >{{ item.value === 'Collision!' ? 'Release' : 'Trigger' }}</button>
               <div v-if="item.connection === 'Simulated'" class="sim-badge">SIM</div>
             </template>
 

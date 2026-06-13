@@ -179,10 +179,11 @@ html, body {
 .ribbon-icon { font-size: 22px; line-height: 1; }
 
 /* Run button accent colors (override when not active) */
-.ribbon-btn.run-start:not(.active)  { color: #388e3c; }
-.ribbon-btn.run-pause:not(.active)  { color: #f57c00; }
-.ribbon-btn.run-resume:not(.active) { color: #0288d1; }
-.ribbon-btn.run-stop:not(.active)   { color: #d32f2f; }
+.ribbon-btn.run-start:not(.active)    { color: #388e3c; }
+.ribbon-btn.run-log-only:not(.active) { color: #0097a7; }
+.ribbon-btn.run-pause:not(.active)    { color: #f57c00; }
+.ribbon-btn.run-resume:not(.active)   { color: #0288d1; }
+.ribbon-btn.run-stop:not(.active)     { color: #d32f2f; }
 
 .ribbon-right {
   display: flex;

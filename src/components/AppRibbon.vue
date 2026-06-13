@@ -13,10 +13,12 @@ const props = defineProps({
 const emit = defineEmits(['navigate', 'run-command', 'other-command', 'toggle-theme'])
 
 // Derived from parent-controlled runState prop
-const showStart  = computed(() => props.runState === 'idle')
-const showPause  = computed(() => props.runState === 'running')
-const showResume = computed(() => props.runState === 'paused')
-const showStop   = computed(() => props.runState === 'running' || props.runState === 'paused')
+// showStart and showLogOnly share the same condition — both idle-only; both hide when either is pressed
+const showStart   = computed(() => props.runState === 'idle')
+const showLogOnly = computed(() => props.runState === 'idle')
+const showPause   = computed(() => props.runState === 'running')
+const showResume  = computed(() => props.runState === 'paused')
+const showStop    = computed(() => props.runState === 'running' || props.runState === 'paused')
 
 const isAdmin    = computed(() => props.currentUser?.role === 'Admin')
 const canOperate = computed(() => props.currentUser?.role === 'Admin' || props.currentUser?.role === 'Operator')
@@ -74,10 +76,11 @@ const screensButtons = computed(() =>
       <!-- Run Options — only on Log Details screen, only for Admin/Operator -->
       <div v-if="activeView === 'logging-details' && canOperate" class="ribbon-group">
         <div class="ribbon-group-btns">
-          <button v-if="showStart"  class="ribbon-btn run-start"  @click="handleRun('start')" ><span class="ribbon-icon">▶</span>Start</button>
-          <button v-if="showPause"  class="ribbon-btn run-pause"  @click="handleRun('pause')" ><span class="ribbon-icon">⏸</span>Pause</button>
-          <button v-if="showResume" class="ribbon-btn run-resume" @click="handleRun('resume')"><span class="ribbon-icon">↻</span>Resume</button>
-          <button v-if="showStop"   class="ribbon-btn run-stop"   @click="handleRun('stop')"  ><span class="ribbon-icon">⏹</span>Stop</button>
+          <button v-if="showStart"   class="ribbon-btn run-start"    @click="handleRun('start')"   ><span class="ribbon-icon">▶</span>Start</button>
+          <button v-if="showLogOnly" class="ribbon-btn run-log-only" @click="handleRun('log-only')"><span class="ribbon-icon">📝</span>Log Only</button>
+          <button v-if="showPause"   class="ribbon-btn run-pause"    @click="handleRun('pause')"   ><span class="ribbon-icon">⏸</span>Pause</button>
+          <button v-if="showResume"  class="ribbon-btn run-resume"   @click="handleRun('resume')"  ><span class="ribbon-icon">↻</span>Resume</button>
+          <button v-if="showStop"    class="ribbon-btn run-stop"     @click="handleRun('stop')"    ><span class="ribbon-icon">⏹</span>Stop</button>
         </div>
         <div class="ribbon-group-label">Run Options</div>
       </div>

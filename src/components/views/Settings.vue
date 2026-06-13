@@ -1,10 +1,12 @@
 <script setup>
 import { ref, computed, watch, inject, onMounted, onUnmounted, nextTick } from 'vue'
 
-const BACKEND_URL   = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
-const maxLogEntries = inject('maxLogEntries')
-const authToken     = inject('authToken')
-const addLog        = inject('addLog')
+const BACKEND_URL      = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
+const maxLogEntries    = inject('maxLogEntries')
+const authToken        = inject('authToken')
+const addLog           = inject('addLog')
+const chartPlotInterval = inject('chartPlotInterval', ref(3))
+const saveAppSettings  = inject('saveAppSettings', () => {})
 
 const settings = ref([
   { id: 1,  depth: 0, name: 'Connection',           value: '',          description: 'Connection settings',              type: 'group',  expanded: true },
@@ -40,24 +42,54 @@ watch(
   val => { if (maxLogEntries && val !== undefined) maxLogEntries.value = Number(val) }
 )
 
+// Chart plot interval — writable computed so v-model in the template updates
+// the App.vue ref immediately (live effect) and persists via saveAppSettings.
+const plotInterval = computed({
+  get: () => chartPlotInterval.value,
+  set: (v) => {
+    const clamped = Math.max(1, Math.min(3600, Math.round(Number(v))))
+    if (!isNaN(clamped)) {
+      chartPlotInterval.value = clamped
+      saveAppSettings()
+    }
+  },
+})
+
 // ── Device Connections ─────────────────────────────────────────────────────
-const dcExpanded     = ref(true)
-const devices        = inject('devices')
-const unsavedChanges = ref(false)
-let   _isLoading     = false           // suppresses watcher during load
+const dcExpanded = ref(true)
+const devices    = inject('devices')
 let nextDevId = Math.max(...devices.value.map(d => d.id), 2) + 1
 
-// Serialize devices without the transient `editing` flag so the watcher
-// only fires when actual data changes, not when a field is focused/blurred.
+// Serialize devices without the transient `editing` flag.
+// Coerce property values to String so that a backend-returned number (9600)
+// and a user-typed string ('9600') compare as equal.
 const devicesSnapshot = computed(() =>
   JSON.stringify(devices.value.map(d => ({
     ...d,
-    properties: d.properties.map(({ editing, ...rest }) => rest),
+    properties: d.properties.map(({ editing, ...rest }) => ({ ...rest, value: String(rest.value) })),
   })))
 )
 
-watch(devicesSnapshot, () => {
-  if (!_isLoading) unsavedChanges.value = true
+// ── Dirty detection — snapshot-based ──────────────────────────────────────
+// Stores what values looked like at last save/load; unsavedChanges is a
+// computed so it automatically clears when the user restores a value.
+const savedSettingsValues = ref(settings.value.map(s => ({ id: s.id, value: s.value })))
+const savedDevicesJson    = ref(devicesSnapshot.value)
+const savedPlotInterval   = ref(chartPlotInterval.value)
+
+function updateSavedSnapshot() {
+  savedSettingsValues.value = settings.value.map(s => ({ id: s.id, value: s.value }))
+  savedDevicesJson.value    = devicesSnapshot.value
+  savedPlotInterval.value   = chartPlotInterval.value
+}
+
+const unsavedChanges = computed(() => {
+  if (chartPlotInterval.value !== savedPlotInterval.value) return true
+  for (const saved of savedSettingsValues.value) {
+    const cur = settings.value.find(s => s.id === saved.id)
+    if (cur && String(cur.value) !== String(saved.value)) return true
+  }
+  return devicesSnapshot.value !== savedDevicesJson.value
 })
 
 // Context menu
@@ -104,7 +136,12 @@ function startDevEdit(prop) {
 function stopDevEdit(prop) { prop.editing = false }
 function devEditKey(e, prop) { if (e.key === 'Enter' || e.key === 'Escape') stopDevEdit(prop) }
 
-onMounted(()   => window.addEventListener('click', hideCtx))
+onMounted(() => {
+  window.addEventListener('click', hideCtx)
+  // Re-baseline after App.vue's async startup fetches have completed
+  savedDevicesJson.value  = devicesSnapshot.value
+  savedPlotInterval.value = chartPlotInterval.value
+})
 onUnmounted(() => window.removeEventListener('click', hideCtx))
 
 // ── General settings editing ───────────────────────────────────────────────
@@ -124,7 +161,7 @@ async function saveSettings() {
       body: JSON.stringify({ devices: devices.value }),
     })
     if (res.ok) {
-      unsavedChanges.value = false
+      updateSavedSnapshot()
       addLog?.('Settings saved successfully', 'Info')
     } else {
       addLog?.(`Settings save failed (${res.status})`, 'Warning')
@@ -135,7 +172,6 @@ async function saveSettings() {
 }
 
 async function loadSettings() {
-  _isLoading = true
   try {
     const res = await fetch(`${BACKEND_URL}/api/devices`)
     if (res.ok) {
@@ -143,8 +179,7 @@ async function loadSettings() {
       if (data.devices?.length) devices.value = data.devices
     }
   } catch { /* backend unreachable */ }
-  _isLoading = false
-  unsavedChanges.value = false
+  updateSavedSnapshot()
 }
 
 // Device configs are loaded by App.vue on startup.
@@ -263,6 +298,31 @@ async function loadSettings() {
               </template>
             </template>
           </template>
+
+          <!-- ── Charting section ── -->
+          <tr class="settings-group-row">
+            <td colspan="3">
+              <span class="dc-toggle">▾</span>
+              📈 Charting
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <span class="depth-indent" style="width:20px" />
+              Plot Interval (s)
+            </td>
+            <td>
+              <input
+                type="number"
+                v-model.number="plotInterval"
+                min="1"
+                max="3600"
+                step="1"
+                style="width:90px"
+              />
+            </td>
+            <td>How often a data point is added to the live chart (1 s – 3600 s)</td>
+          </tr>
 
         </tbody>
       </table>
