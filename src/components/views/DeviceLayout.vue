@@ -71,10 +71,11 @@ async function loadLayout() {
       items.value = data
       nextId = Math.max(...data.map(i => i.id), 0) + 1
 
-      // Register all simulated sensors in the backend service so their state
-      // is authoritative there; update local state from whatever the service returns.
-      for (const item of items.value.filter(i => i.type === 'sensor' && i.connection === 'Simulated')) {
-        await registerSimulatedSensor(item)
+      // Register all sensors with the backend so the canvas→DB ID mapping is
+      // cached in SensorSimulationService (needed for readings batch writes).
+      for (const item of items.value.filter(i => i.type === 'sensor')) {
+        if (item.connection === 'Simulated') await registerSimulatedSensor(item)
+        else                                 await registerRealSensor(item)
       }
     }
   } catch {
@@ -96,6 +97,18 @@ async function registerSimulatedSensor(item) {
     if (item.driver === 'relay')              item.relayState = data.state       // 'on' | 'off'
     if (item.driver === 'collision-detector') item.value      = data.stateLabel  // 'TRIGGERED' | 'CLEAR'
   } catch { /* backend unreachable — local state stands */ }
+}
+
+// Register a real (non-simulated) sensor so a Sensor DB row exists and the
+// canvas→DB ID mapping is cached. Does not create simulation state.
+async function registerRealSensor(item) {
+  try {
+    await fetch(`${BACKEND_URL}/api/sensors/register-canvas`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ canvasId: item.id, name: item.name, driver: item.driver }),
+    })
+  } catch { /* backend unreachable — will retry on next load */ }
 }
 
 async function saveLayout() {
@@ -186,8 +199,9 @@ async function confirmAddSensor({ name, connection, driver, pin }) {
   isEditMode.value = true
   saveLayout()
 
-  // Register the new simulated sensor immediately so the backend is aware of it
+  // Register the new sensor immediately so the backend DB mapping is ready
   if (connection === 'Simulated') await registerSimulatedSensor(newItem)
+  else                            await registerRealSensor(newItem)
 }
 
 function addRectangle() {

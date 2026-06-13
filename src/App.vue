@@ -79,8 +79,11 @@ const chartData = ref({
   }],
 })
 
-// Rebuild chart datasets whenever the set of logged sensors changes
-watch(loggedSensors, (sensors) => {
+// Rebuild chart datasets whenever the set of logged sensors changes.
+// When sensors go non-empty → empty (run stops), DO NOT clear the chart —
+// preserve the live data so users can review it after the recipe finishes.
+// Only reset to the default single-line when starting from idle (prevSensors empty).
+watch(loggedSensors, (sensors, prevSensors) => {
   if (sensors.length > 0) {
     chartData.value = {
       labels:   [],
@@ -96,8 +99,8 @@ watch(loggedSensors, (sensors) => {
         fill:            sensors.length === 1,
       })),
     }
-  } else {
-    // Reset to single-line recipe / idle mode
+  } else if (!prevSensors || prevSensors.length === 0) {
+    // Initial render (immediate) or idle→idle: reset to generic single-line default
     chartData.value = {
       labels:   [],
       datasets: [{
@@ -112,6 +115,7 @@ watch(loggedSensors, (sensors) => {
       }],
     }
   }
+  // sensors empty + prevSensors non-empty = run just stopped: leave chart data intact
 }, { immediate: true })
 
 // Tracks the last time a chart point was written; reset when the interval changes
@@ -552,6 +556,21 @@ async function handleRunCommand(cmd) {
 async function handleStartConfirmed(info) {
   // Build the sensor list for logging (DO + DI, whichever are present)
   const recipeSensors = [info.doSensor, info.diSensor].filter(Boolean)
+
+  // Ensure every recipe sensor has a canvasId→dbSensorId mapping in the backend
+  // before readings start being written.  The DeviceLayout registers sensors on mount,
+  // but if it was never visited this session (or the backend restarted), the in-memory
+  // mapping is missing and batch reads are silently dropped.
+  for (const s of recipeSensors) {
+    const endpoint = s.connection === 'Simulated'
+      ? `${BACKEND_URL}/api/simulate/register`
+      : `${BACKEND_URL}/api/sensors/register-canvas`
+    await fetch(endpoint, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ canvasId: s.id, name: s.name, driver: s.driver }),
+    }).catch(() => {})
+  }
 
   runState.value = 'running'
   runInfo.value  = {

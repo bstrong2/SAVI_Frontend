@@ -12,7 +12,8 @@ const selectedDriver     = ref('')
 const pinNumber          = ref(18)
 
 const showPinField = computed(() =>
-  selectedConnection.value !== 'Simulated' && selectedDriver.value === 'relay'
+  selectedConnection.value !== 'Simulated' &&
+  (selectedDriver.value === 'relay' || selectedDriver.value === 'collision-detector')
 )
 
 // Build connection list from devices + Simulated

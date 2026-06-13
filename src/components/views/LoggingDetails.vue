@@ -155,6 +155,15 @@ watch(() => runInfo.value?.dbRunId, async (newId, oldId) => {
   if (newId && !oldId) await loadChartFromDb(newId)
 })
 
+// When a run stops, reload from DB so the completed run's data appears on the chart.
+// This covers the case where the user is already on this view when the recipe finishes.
+watch(runState, async (newState, oldState) => {
+  if (newState === 'idle' && oldState !== 'idle') {
+    const dbRunId = runInfo?.value?.dbRunId
+    if (dbRunId) await loadChartFromDb(dbRunId)
+  }
+})
+
 // ── Chart options ───────────────────────────────────────────────────────────
 // Does NOT read chartData directly — avoids triggering a simultaneous options+data change
 // that would cause vue-chartjs to reinitialise the chart on every broadcast tick.
