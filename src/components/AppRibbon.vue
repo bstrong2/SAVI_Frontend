@@ -53,7 +53,7 @@ const screensButtons = computed(() =>
       <img src="/logo.png" alt="SAVI" class="ribbon-logo" />
       <div class="logo-text">
         <div class="logo-name">SAVI</div>
-        <div class="logo-subtitle">Sensor Acquisition Visualization Interface</div>
+        <div class="logo-subtitle">Sensor Acquisition & Visualization Interface</div>
       </div>
     </div>
 

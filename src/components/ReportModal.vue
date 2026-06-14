@@ -127,6 +127,9 @@ async function generateReport() {
         <div class="report-group">
           <div class="report-group-header">Run Details</div>
           <div class="run-details">
+            <label class="detail-label">Recipe:</label>
+            <input class="detail-input" readonly :value="selectedRun?.recipeName ?? ''" />
+
             <label class="detail-label">Comments:</label>
             <textarea class="detail-input detail-textarea" readonly :value="selectedRun?.comments ?? ''" />
 

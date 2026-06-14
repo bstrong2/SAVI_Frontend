@@ -46,14 +46,6 @@ watch(displaySensors, (list) => {
   }
 }, { immediate: true })
 
-const selectedSensorObj = computed(() =>
-  displaySensors.value.find(s => s.id === selectedSensorId.value) ?? null
-)
-
-const units  = computed(() => selectedSensorObj.value?.unit       ?? '—')
-const ipAddr = computed(() => selectedSensorObj.value?.connection ?? '—')
-const driver = computed(() => selectedSensorObj.value?.driver     ?? '—')
-
 const startedBy = computed(() => runInfo?.value?.startedBy ?? '—')
 const startedAt = computed(() => runInfo?.value?.startedAt ?? '—')
 const status    = computed(() => runInfo?.value?.status    ?? 'Idle')
@@ -247,35 +239,6 @@ onUnmounted(() => {
 
 <template>
   <div class="logging-details">
-
-    <!-- Left panel — sensor detail picker ──────────────────────────────── -->
-    <div class="details-left">
-      <div class="form-field">
-        <label>{{ isLogOnlyMode ? 'Logged Sensor' : 'Sensor' }}</label>
-        <select v-model="selectedSensorId">
-          <option v-if="displaySensors.length === 0" :value="null" disabled>
-            {{ isLogOnlyMode ? 'No sensors selected' : 'No sensors on canvas' }}
-          </option>
-          <option v-for="s in displaySensors" :key="s.id" :value="s.id">{{ s.name }}</option>
-        </select>
-      </div>
-      <div class="form-field">
-        <label>Units</label>
-        <input type="text" :value="units" readonly />
-      </div>
-      <div class="form-field">
-        <label>Connection</label>
-        <input type="text" :value="ipAddr" readonly />
-      </div>
-      <div class="form-field">
-        <label>Driver</label>
-        <input type="text" :value="driver" readonly />
-      </div>
-
-      <div v-if="isLogOnlyMode" class="logging-badge">
-        📝 {{ loggedSensors.length }} sensor{{ loggedSensors.length === 1 ? '' : 's' }} logging
-      </div>
-    </div>
 
     <!-- Center: chart ───────────────────────────────────────────────────── -->
     <div class="details-center">

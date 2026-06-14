@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
 const props = defineProps({
   error:   { type: String, default: '' },
@@ -11,6 +11,9 @@ const emit = defineEmits(['close', 'login'])
 const username    = ref('')
 const password    = ref('')
 const capsLockOn  = ref(false)
+const usernameEl  = ref(null)
+
+onMounted(() => usernameEl.value?.focus())
 
 function checkCaps(e) {
   capsLockOn.value = e.getModifierState('CapsLock')
@@ -28,11 +31,11 @@ function submit() {
       <div class="modal-row">
         <label class="modal-label">User Name:</label>
         <input
+          ref="usernameEl"
           type="text"
           class="modal-input"
           v-model="username"
           @keydown.enter="submit"
-          autofocus
         />
       </div>
       <div class="modal-row">

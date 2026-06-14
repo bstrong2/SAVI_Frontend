@@ -475,7 +475,6 @@ function onCanvasClick(e) {
       <template v-else>
         <button v-if="selectedId !== null" class="toolbar-btn toolbar-btn-danger" @click="deleteSelected">🗑 Delete</button>
         <button class="toolbar-btn active" @click="doneEdit">✔ Done Editing</button>
-        <button v-if="selectedIsSensor" class="toolbar-btn" @click.stop="() => {}">↺ Reconnect</button>
 
         <!-- Background + Text color pickers — available for both sensors and rects -->
         <template v-if="selectedHasColor">

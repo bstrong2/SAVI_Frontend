@@ -733,8 +733,13 @@ function onSplitterMouseDown(e) {
     />
 
     <div class="main-area">
-      <LoggingDetails v-show="activeView === 'logging-details'" />
-      <component :is="viewMap[activeView]" v-if="activeView !== 'logging-details'" />
+      <div v-if="!currentUser" class="login-required">
+        Please login to use the application.
+      </div>
+      <template v-else>
+        <LoggingDetails v-show="activeView === 'logging-details'" />
+        <component :is="viewMap[activeView]" v-if="activeView !== 'logging-details'" />
+      </template>
     </div>
 
     <div class="h-splitter" @mousedown="onSplitterMouseDown" />
