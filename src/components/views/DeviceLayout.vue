@@ -9,6 +9,7 @@ const addLog       = inject('addLog', () => {})
 const items        = inject('layoutItems')
 const devices      = inject('devices', ref([]))
 const runState     = inject('runState', ref('idle'))
+const runInfo      = inject('runInfo',  ref(null))
 
 const canOperate = computed(() =>
   currentUser?.value?.role === 'Admin' || currentUser?.value?.role === 'Operator'
@@ -16,6 +17,10 @@ const canOperate = computed(() =>
 const isRunning = computed(() =>
   runState.value === 'running' || runState.value === 'paused'
 )
+
+function isRecipeRelay(item) {
+  return isRunning.value && runInfo.value?.doSensorId === item.id
+}
 
 const isEditMode         = ref(false)
 const showAddMenu        = ref(false)
@@ -380,6 +385,8 @@ function resolveDeviceId(connection) {
 }
 
 async function handleRelayChange(item, state) {
+  const who = currentUser?.value?.username ?? 'Unknown'
+  addLog(`"${item.name}" turned ${state.toUpperCase()} by ${who}`, 'Info')
   item.relayState = state  // optimistic local update
 
   if (item.connection === 'Simulated') {
@@ -590,7 +597,7 @@ function onCanvasClick(e) {
               <div class="relay-controls" @mousedown.stop @click.stop>
                 <label
                   class="relay-label"
-                  :class="{ 'relay-disabled': !canOperate || isRunning }"
+                  :class="{ 'relay-disabled': !canOperate || isRecipeRelay(item) }"
                   :style="{ color: item.textColor || null }"
                 >
                   <input
@@ -598,13 +605,13 @@ function onCanvasClick(e) {
                     :name="'relay-' + item.id"
                     value="on"
                     :checked="item.relayState === 'on'"
-                    :disabled="!canOperate || isRunning"
+                    :disabled="!canOperate || isRecipeRelay(item)"
                     @change="handleRelayChange(item, 'on')"
                   /> ON
                 </label>
                 <label
                   class="relay-label"
-                  :class="{ 'relay-disabled': !canOperate || isRunning }"
+                  :class="{ 'relay-disabled': !canOperate || isRecipeRelay(item) }"
                   :style="{ color: item.textColor || null }"
                 >
                   <input
@@ -612,7 +619,7 @@ function onCanvasClick(e) {
                     :name="'relay-' + item.id"
                     value="off"
                     :checked="item.relayState !== 'on'"
-                    :disabled="!canOperate || isRunning"
+                    :disabled="!canOperate || isRecipeRelay(item)"
                     @change="handleRelayChange(item, 'off')"
                   /> OFF
                 </label>

@@ -612,6 +612,7 @@ async function handleStartConfirmed(info) {
     status:          'Running',
     dbRunId:         null,
     selectedSensors: recipeSensors,
+    doSensorId:      info.doSensor?.id ?? null,
   }
   showStartRun.value = false
 
