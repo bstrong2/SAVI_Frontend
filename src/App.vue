@@ -363,6 +363,22 @@ onMounted(async () => {
     }
   })
 
+  // Re-register all real DI sensors with their Pi after a backend restart so
+  // live monitoring resumes automatically without user intervention.
+  conn.onreconnected(() => {
+    for (const item of layoutItems.value) {
+      if (item.type !== 'sensor' || item.driver !== 'collision-detector') continue
+      if (item.connection === 'Simulated' || item.pin == null) continue
+      const deviceId = resolveDeviceId(item.connection)
+      if (deviceId === null) continue
+      fetch(`${BACKEND_URL}/api/devices/${deviceId}/di/monitor`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ pin: item.pin, canvasId: item.id }),
+      }).catch(() => {})
+    }
+  })
+
   // Live simulated sensor state — broadcast every second by SensorSimulationService.
   // 1) Updates relay tiles and collision-detector tiles on the canvas.
   // 2) Pushes chart data points while a log-only session is actively running.

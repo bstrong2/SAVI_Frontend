@@ -51,7 +51,10 @@ const screensButtons = computed(() =>
   <div class="ribbon">
     <div class="ribbon-title" style="cursor:pointer" @click="emit('navigate', 'device-layout')">
       <img src="/logo.png" alt="SAVI" class="ribbon-logo" />
-      <div class="logo-name">SAVI</div>
+      <div class="logo-text">
+        <div class="logo-name">SAVI</div>
+        <div class="logo-subtitle">Sensor Acquisition Visualization Interface</div>
+      </div>
     </div>
 
     <!-- Wrapping groups -->

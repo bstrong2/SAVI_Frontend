@@ -115,12 +115,28 @@ html, body {
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
 }
 
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .logo-name {
   font-size: 18px;
   font-weight: 800;
   letter-spacing: 3px;
   color: var(--logo-name-color);
   line-height: 1;
+}
+
+.logo-subtitle {
+  font-size: 7.5px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  color: var(--logo-name-color);
+  opacity: 0.65;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .ribbon-group {
@@ -459,7 +475,7 @@ input[readonly]:focus, textarea[readonly]:focus {
   cursor: default;
 }
 .sensor-tile.editable { cursor: move; border-color: var(--accent); }
-.sensor-tile-name  { font-weight: 600; color: var(--text-primary); }
+.sensor-tile-name  { font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; text-align: center; }
 .sensor-tile-value { color: var(--accent); font-size: 15px; font-weight: 700; margin-top: 4px; }
 .sensor-tile-unit  { font-size: 10px; color: var(--text-secondary); }
 

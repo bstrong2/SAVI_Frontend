@@ -8,9 +8,13 @@ const currentUser  = inject('currentUser')
 const addLog       = inject('addLog', () => {})
 const items        = inject('layoutItems')
 const devices      = inject('devices', ref([]))
+const runState     = inject('runState', ref('idle'))
 
 const canOperate = computed(() =>
   currentUser?.value?.role === 'Admin' || currentUser?.value?.role === 'Operator'
+)
+const isRunning = computed(() =>
+  runState.value === 'running' || runState.value === 'paused'
 )
 
 const isEditMode         = ref(false)
@@ -586,7 +590,7 @@ function onCanvasClick(e) {
               <div class="relay-controls" @mousedown.stop @click.stop>
                 <label
                   class="relay-label"
-                  :class="{ 'relay-disabled': !canOperate }"
+                  :class="{ 'relay-disabled': !canOperate || isRunning }"
                   :style="{ color: item.textColor || null }"
                 >
                   <input
@@ -594,13 +598,13 @@ function onCanvasClick(e) {
                     :name="'relay-' + item.id"
                     value="on"
                     :checked="item.relayState === 'on'"
-                    :disabled="!canOperate"
+                    :disabled="!canOperate || isRunning"
                     @change="handleRelayChange(item, 'on')"
                   /> ON
                 </label>
                 <label
                   class="relay-label"
-                  :class="{ 'relay-disabled': !canOperate }"
+                  :class="{ 'relay-disabled': !canOperate || isRunning }"
                   :style="{ color: item.textColor || null }"
                 >
                   <input
@@ -608,7 +612,7 @@ function onCanvasClick(e) {
                     :name="'relay-' + item.id"
                     value="off"
                     :checked="item.relayState !== 'on'"
-                    :disabled="!canOperate"
+                    :disabled="!canOperate || isRunning"
                     @change="handleRelayChange(item, 'off')"
                   /> OFF
                 </label>
