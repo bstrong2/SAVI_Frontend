@@ -85,7 +85,7 @@ async function generateReport() {
 
     const sensorNames = [...new Set(readings.map(rd => rd.sensorName))]
 
-    if (separateSensorFiles.value && sensorNames.length > 1) {
+    if (separateSensorFiles.value) {
       sensorNames.forEach((sensorName, i) => {
         const safeName       = sensorName.replace(/[/\\:*?"<>|]/g, '').replace(/\s+/g, '_')
         const sensorReadings = readings.filter(rd => rd.sensorName === sensorName)

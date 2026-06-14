@@ -32,7 +32,7 @@ function handleRun(cmd) {
 const allScreensButtons = [
   { id: 'device-layout',   icon: '⊞', label: 'Device Layout' },
   { id: 'logging-details', icon: '📈', label: 'Log Details',  authRequired: true },
-  { id: 'recipe',          icon: '📋', label: 'Recipe (in progress)', operatorOnly: true },
+  { id: 'recipe',          icon: '📋', label: 'Recipe (WIP)', operatorOnly: true },
   { id: 'settings',        icon: '⚙',  label: 'Settings',     operatorOnly: true },
   { id: 'users',           icon: '👥', label: 'Users',         adminOnly: true },
 ]

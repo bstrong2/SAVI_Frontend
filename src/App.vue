@@ -732,7 +732,8 @@ function onSplitterMouseDown(e) {
     />
 
     <div class="main-area">
-      <component :is="viewMap[activeView]" />
+      <LoggingDetails v-show="activeView === 'logging-details'" />
+      <component :is="viewMap[activeView]" v-if="activeView !== 'logging-details'" />
     </div>
 
     <div class="h-splitter" @mousedown="onSplitterMouseDown" />
