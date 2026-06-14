@@ -523,7 +523,7 @@ async function callRelay(sensor, state) {
         await fetch(`${BACKEND_URL}/api/devices/${deviceId}/do`, {
           method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ pin: sensor.pin, state }),
+          body:    JSON.stringify({ pin: sensor.pin, state, canvasId: sensor.id }),
         })
       }
     }

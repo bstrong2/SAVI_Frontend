@@ -410,7 +410,7 @@ async function handleRelayChange(item, state) {
           await fetch(`${BACKEND_URL}/api/devices/${deviceId}/do`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ pin: item.pin, state: state === 'on' }),
+            body:    JSON.stringify({ pin: item.pin, state: state === 'on', canvasId: item.id }),
           })
         } catch (err) {
           addLog(`Relay command failed: ${err.message}`, 'Warning')
