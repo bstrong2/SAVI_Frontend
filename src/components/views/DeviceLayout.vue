@@ -372,6 +372,40 @@ function resetTextColorToAuto() {
   showTextColorPicker.value = false
 }
 
+// Reconnect All Devices — restarts the Pi FastAPI on every connected IP device,
+// then restarts the C# backend (which auto-restarts when running as a Windows service).
+const reconnecting = ref(false)
+
+async function reconnectAllDevices() {
+  reconnecting.value = true
+  addLog('Reconnect All: restarting Pi agent(s)…', 'Info')
+
+  const ipDevices = (devices.value ?? []).filter(d => d.type === 'ip')
+  for (const d of ipDevices) {
+    const ip   = d.properties.find(p => p.name === 'IpAddress')?.value?.trim()
+    const port = d.properties.find(p => p.name === 'PortNumber')?.value
+    if (!ip || !port) continue
+    try {
+      await fetch(`http://${ip}:${port}/restart`, { method: 'POST' })
+      addLog(`Reconnect All: restart sent to Pi at ${ip}:${port}`, 'Info')
+    } catch {
+      addLog(`Reconnect All: could not reach Pi at ${ip}:${port}`, 'Warning')
+    }
+  }
+
+  addLog('Reconnect All: restarting C# backend…', 'Info')
+  try {
+    await fetch(`${BACKEND_URL}/api/admin/restart`, {
+      method:  'POST',
+      headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
+    })
+  } catch { /* expected — backend closes the connection as it exits */ }
+
+  // Backend is restarting — SignalR will reconnect on its own.
+  // Reset local flag after a short delay so the button re-enables once reconnected.
+  setTimeout(() => { reconnecting.value = false }, 8000)
+}
+
 // Relay control — resolve connection string to a numeric device id
 function resolveDeviceId(connection) {
   if (!connection || connection === 'Simulated') return null
@@ -697,7 +731,9 @@ function onCanvasClick(e) {
       @close="showAddSensorModal = false"
     />
 
-    <button v-if="canOperate" class="reconnect-all-btn" @click.stop="() => {}">↺ Reconnect All Devices</button>
+    <button v-if="canOperate" class="reconnect-all-btn" :disabled="reconnecting" @click.stop="reconnectAllDevices">
+      {{ reconnecting ? '↺ Reconnecting…' : '↺ Reconnect All Devices' }}
+    </button>
   </div>
 </template>
 
