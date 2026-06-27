@@ -2,14 +2,14 @@
 import { ref, computed, inject, onMounted, onUnmounted } from 'vue'
 import AddSensorModal from '../AddSensorModal.vue'
 
-const BACKEND_URL  = inject('BACKEND_URL', 'http://localhost:5176')
-const authToken    = inject('authToken')
-const currentUser  = inject('currentUser')
-const addLog       = inject('addLog', () => {})
-const items        = inject('layoutItems')
-const devices      = inject('devices', ref([]))
-const runState     = inject('runState', ref('idle'))
-const runInfo      = inject('runInfo',  ref(null))
+const BACKEND_URL = inject('BACKEND_URL', 'http://localhost:5176')
+const authToken = inject('authToken')
+const currentUser = inject('currentUser')
+const addLog = inject('addLog', () => {})
+const items = inject('layoutItems')
+const devices = inject('devices', ref([]))
+const runState = inject('runState', ref('idle'))
+const runInfo = inject('runInfo',  ref(null))
 
 const canOperate = computed(() =>
   currentUser?.value?.role === 'Admin' || currentUser?.value?.role === 'Operator'
@@ -22,12 +22,12 @@ function isRecipeRelay(item) {
   return isRunning.value && runInfo.value?.doSensorId === item.id
 }
 
-const isEditMode         = ref(false)
-const showAddMenu        = ref(false)
+const isEditMode = ref(false)
+const showAddMenu = ref(false)
 const showAddSensorModal = ref(false)
-const showColorPicker     = ref(false)
+const showColorPicker = ref(false)
 const showTextColorPicker = ref(false)
-const selectedId          = ref(null)
+const selectedId = ref(null)
 
 // Track whether a mousedown started inside the toolbar so a drag that ends
 // anywhere doesn't accidentally clear the selection.
@@ -38,7 +38,9 @@ const resetToolbarFlag = () => setTimeout(() => { mouseDownInToolbar = false }, 
 function onKeyDown(e) {
   if ((e.key === 'Delete' || e.key === 'Backspace') && isEditMode.value && selectedId.value !== null) {
     const tag = document.activeElement?.tagName
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') 
+      return
+    
     deleteSelected()
   }
 }
@@ -66,14 +68,20 @@ let nextId = 1
 async function loadLayout() {
   try {
     const res = await fetch(`${BACKEND_URL}/api/layout`)
-    if (!res.ok) return
+    if (!res.ok) 
+      return
+    
     const data = await res.json()
+
     if (Array.isArray(data) && data.length > 0) {
       // Normalise fields added after initial save
       data.forEach(item => {
-        if (item.type !== 'sensor') return
+        if (item.type !== 'sensor') 
+          return
+        
         if (item.driver === 'relay' && item.relayState == null)
           item.relayState = 'off'
+
         if (item.driver === 'collision-detector' && (item.value == null || item.value === '--' || item.value === 'CLEAR'))
           item.value = 'No Contact'
       })
@@ -83,8 +91,10 @@ async function loadLayout() {
       // Register all sensors with the backend so the canvas→DB ID mapping is
       // cached in SensorSimulationService (needed for readings batch writes).
       for (const item of items.value.filter(i => i.type === 'sensor')) {
-        if (item.connection === 'Simulated') await registerSimulatedSensor(item)
-        else                                 await registerRealSensor(item)
+        if (item.connection === 'Simulated') 
+          await registerSimulatedSensor(item)
+        else
+          await registerRealSensor(item)
       }
     }
   } catch {
@@ -97,14 +107,17 @@ async function loadLayout() {
 async function registerSimulatedSensor(item) {
   try {
     const res = await fetch(`${BACKEND_URL}/api/simulate/register`, {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ canvasId: item.id, name: item.name, driver: item.driver }),
+      body: JSON.stringify({ canvasId: item.id, name: item.name, driver: item.driver }),
     })
     if (!res.ok) return
     const data = await res.json()
-    if (item.driver === 'relay')              item.relayState = data.state       // 'on' | 'off'
-    if (item.driver === 'collision-detector') item.value      = data.stateLabel  // 'TRIGGERED' | 'CLEAR'
+    if (item.driver === 'relay')
+      item.relayState = data.state       // 'on' | 'off'
+
+    if (item.driver === 'collision-detector') 
+      item.value = data.stateLabel  // 'TRIGGERED' | 'CLEAR'
   } catch { /* backend unreachable — local state stands */ }
 }
 
@@ -113,11 +126,14 @@ async function registerSimulatedSensor(item) {
 async function registerRealSensor(item) {
   try {
     await fetch(`${BACKEND_URL}/api/sensors/register-canvas`, {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ canvasId: item.id, name: item.name, driver: item.driver }),
+      body: JSON.stringify({ canvasId: item.id, name: item.name, driver: item.driver }),
     })
-  } catch { /* backend unreachable — will retry on next load */ }
+  } catch 
+  { 
+    /* backend unreachable — will retry on next load */ 
+  }
 
   // For collision detectors, also tell the Pi to start monitoring the GPIO pin.
   if (item.driver === 'collision-detector' && item.pin != null) {
@@ -125,11 +141,14 @@ async function registerRealSensor(item) {
     if (deviceId !== null) {
       try {
         await fetch(`${BACKEND_URL}/api/devices/${deviceId}/di/monitor`, {
-          method:  'POST',
+          method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ pin: item.pin, canvasId: item.id }),
+          body: JSON.stringify({ pin: item.pin, canvasId: item.id }),
         })
-      } catch { /* Pi offline — will retry on next layout load */ }
+      } catch 
+      { 
+        /* Pi offline — will retry on next layout load */ 
+      }
     }
   }
 }
@@ -140,19 +159,21 @@ async function saveLayout() {
     const res = await fetch(`${BACKEND_URL}/api/layout`, {
       method:  'POST',
       headers: {
-        'Content-Type':  'application/json',
+        'Content-Type': 'application/json',
         'Authorization': `Bearer ${authToken.value}`,
       },
       body: JSON.stringify(items.value),
     })
-    if (!res.ok) addLog(`Layout save failed (HTTP ${res.status})`, 'Warning')
+    if (!res.ok) 
+      addLog(`Layout save failed (HTTP ${res.status})`, 'Warning')
+
   } catch (err) {
     addLog(`Layout save failed: ${err.message}`, 'Warning')
   }
 }
 
-const selectedItem     = computed(() => items.value.find(i => i.id === selectedId.value) ?? null)
-const selectedIsRect   = computed(() => selectedItem.value?.type === 'rect')
+const selectedItem = computed(() => items.value.find(i => i.id === selectedId.value) ?? null)
+const selectedIsRect = computed(() => selectedItem.value?.type === 'rect')
 const selectedIsSensor = computed(() => selectedItem.value?.type === 'sensor')
 const selectedHasColor = computed(() => selectedIsRect.value || selectedIsSensor.value)
 
@@ -170,14 +191,18 @@ const canvasStyle = computed(() => {
     maxX = Math.max(maxX, item.x + (item.w ?? 120) + PAD)
     maxY = Math.max(maxY, item.y + (item.h ?? 60)  + PAD)
   }
-  return { width: maxX + 'px', height: maxY + 'px' }
+  return { 
+    width: maxX + 'px', height: maxY + 'px' 
+  }
 })
 
-const originalColor    = ref(null)
+const originalColor = ref(null)
 const originalTextColor = ref(null)
 
 function rectTextColor(hex) {
-  if (!hex) return '#fff'
+  if (!hex) 
+    return '#fff'
+
   const r = parseInt(hex.slice(1, 3), 16)
   const g = parseInt(hex.slice(3, 5), 16)
   const b = parseInt(hex.slice(5, 7), 16)
@@ -186,7 +211,8 @@ function rectTextColor(hex) {
 
 function selectRect(item, e) {
   e.stopPropagation()
-  if (isEditMode.value) selectedId.value = item.id
+  if (isEditMode.value)
+    selectedId.value = item.id
 }
 
 function startEdit() {

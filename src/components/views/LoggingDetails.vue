@@ -1,34 +1,22 @@
 <script setup>
 import { ref, computed, inject, watch, onMounted, onUnmounted } from 'vue'
 import { Line } from 'vue-chartjs'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
-const connection    = inject('connection')
-const layoutItems   = inject('layoutItems')
-const runInfo       = inject('runInfo')
-const runState      = inject('runState')       // 'idle' | 'running' | 'paused'
-const chartData     = inject('chartData')      // persistent ref owned by App.vue
+const connection = inject('connection')
+const layoutItems = inject('layoutItems')
+const runInfo = inject('runInfo')
+const runState = inject('runState')       // 'idle' | 'running' | 'paused'
+const chartData = inject('chartData')      // persistent ref owned by App.vue
 const loggedSensors = inject('loggedSensors')  // computed ref owned by App.vue
-const BACKEND_URL   = inject('BACKEND_URL')
+const BACKEND_URL = inject('BACKEND_URL')
 
 // ── Mode detection ──────────────────────────────────────────────────────────
-
 const isLogOnlyMode = computed(() => loggedSensors.value.length > 0)
 
 // ── Sensor list for the left-panel detail picker ────────────────────────────
-
 const allCanvasSensors = computed(() =>
   (layoutItems?.value ?? []).filter(i => i.type === 'sensor')
 )
@@ -51,7 +39,6 @@ const startedAt = computed(() => runInfo?.value?.startedAt ?? '—')
 const status    = computed(() => runInfo?.value?.status    ?? 'Idle')
 
 // ── Historical data loading ─────────────────────────────────────────────────
-
 const CHART_PALETTE = [
   '#007ACC', '#e64a19', '#388e3c', '#7b1fa2',
   '#0097a7', '#f57c00', '#880e4f', '#558b2f',
@@ -110,18 +97,19 @@ async function loadChartFromDb(runId) {
       chartData.value = {
         labels:   allLabels,
         datasets: names.map((name, i) => ({
-          label:           name,
-          data:            allLabels.map(t => byName[name][t] ?? null),
-          borderColor:     CHART_PALETTE[i % CHART_PALETTE.length],
+          label: name,
+          data: allLabels.map(t => byName[name][t] ?? null),
+          borderColor: CHART_PALETTE[i % CHART_PALETTE.length],
           backgroundColor: chartHexToRgba(CHART_PALETTE[i % CHART_PALETTE.length], 0.08),
-          borderWidth:     2,
-          tension:         0.3,
-          pointRadius:     2,
-          fill:            names.length === 1,
+          borderWidth: 2,
+          tension: 0.3,
+          pointRadius: 2,
+          fill: names.length === 1,
         })),
       }
     }
-  } catch { /* backend unreachable */ }
+  } catch 
+    { /* backend unreachable */ }
 }
 
 onMounted(async () => {
@@ -166,9 +154,9 @@ const showLegend = ref(false)
 watch(() => chartData.value.datasets.length, n => { showLegend.value = n > 1 }, { immediate: true })
 
 const chartOptions = computed(() => ({
-  responsive:          true,
+  responsive: true,
   maintainAspectRatio: false,
-  animation:           { duration: 0 },
+  animation: { duration: 0 },
   plugins: {
     legend: {
       display: showLegend.value,
@@ -179,14 +167,14 @@ const chartOptions = computed(() => ({
     x: {
       ticks: {
         maxTicksLimit: 6,
-        maxRotation:   45,
-        minRotation:   0,
-        font:          { size: 9 },
+        maxRotation: 45,
+        minRotation: 0,
+        font: { size: 9 },
       },
     },
     y: {
       beginAtZero: true,
-      ticks:       { font: { size: 10 } },
+      ticks: { font: { size: 10 } },
     },
   },
 }))
@@ -198,7 +186,6 @@ const hasData = computed(() =>
 // ── SensorUpdate handler — recipe / generic sensor mode ────────────────────
 //   Immutable array replacement so Chart.js always sees fresh references.
 //   Only used when a recipe is running (not in log-only mode).
-
 const MAX_POINTS = 120
 
 function fmtDateTime(d = new Date()) {
@@ -207,16 +194,23 @@ function fmtDateTime(d = new Date()) {
 }
 
 function handleSensorUpdate(sensorId, value) {
-  if (isLogOnlyMode.value) return
-  if (sensorId !== selectedSensorId.value) return
+  if (isLogOnlyMode.value) 
+    return
+  
+  if (sensorId !== selectedSensorId.value) 
+    return
 
   const ds = chartData.value.datasets[0]
   if (!ds) return
 
   const newLabels = [...chartData.value.labels, fmtDateTime()]
-  const newData   = [...ds.data, value]
-  if (newLabels.length > MAX_POINTS) newLabels.shift()
-  if (newData.length   > MAX_POINTS) newData.shift()
+  const newData = [...ds.data, value]
+
+  if (newLabels.length > MAX_POINTS) 
+    newLabels.shift()
+
+  if (newData.length   > MAX_POINTS) 
+    newData.shift()
 
   chartData.value = {
     labels:   newLabels,
@@ -226,7 +220,6 @@ function handleSensorUpdate(sensorId, value) {
 
 // ── SignalR listener — SensorUpdate only ────────────────────────────────────
 // SimulatedSensorState is handled by App.vue (persistent across navigation).
-
 watch(connection, (conn, prevConn) => {
   prevConn?.off('SensorUpdate', handleSensorUpdate)
   conn?.on(     'SensorUpdate', handleSensorUpdate)

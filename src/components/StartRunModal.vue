@@ -7,12 +7,12 @@ const BACKEND_URL = inject('BACKEND_URL', 'http://localhost:5176')
 const currentUser = inject('currentUser')
 const layoutItems = inject('layoutItems', ref([]))
 
-const notes          = ref('')
+const notes = ref('')
 const selectedRecipe = ref('')
 
 // Recipes fetched from GET /api/recipes
-const recipes  = ref([])
-const loading  = ref(true)
+const recipes = ref([])
+const loading = ref(true)
 const fetchErr = ref(false)
 
 onMounted(async () => {
@@ -20,7 +20,8 @@ onMounted(async () => {
     const res = await fetch(`${BACKEND_URL}/api/recipes`)
     if (res.ok) {
       recipes.value = await res.json()
-      if (recipes.value.length) selectedRecipe.value = recipes.value[0].name
+      if (recipes.value.length) 
+        selectedRecipe.value = recipes.value[0].name
     } else {
       fetchErr.value = true
     }
@@ -32,9 +33,7 @@ onMounted(async () => {
 })
 
 const startedBy = computed(() =>
-  currentUser?.value
-    ? `${currentUser.value.username} (${currentUser.value.role})`
-    : 'Unknown'
+  currentUser?.value ? `${currentUser.value.username} (${currentUser.value.role})` : 'Unknown'
 )
 
 const selectedRecipeObj = computed(() =>
@@ -78,26 +77,33 @@ const needsDo = computed(() => !!selectedRecipeObj.value?.requiresDo)
 const needsDi = computed(() => !!selectedRecipeObj.value?.requiresDi)
 
 const canSubmit = computed(() => {
-  if (!selectedRecipe.value) return false
-  if (needsDo.value && !selectedDoSensor.value) return false
-  if (needsDi.value && !selectedDiSensor.value) return false
+  if (!selectedRecipe.value) 
+    return false
+  if (needsDo.value && !selectedDoSensor.value) 
+    return false
+  if (needsDi.value && !selectedDiSensor.value) 
+    return false
+
   return true
 })
 
 function submit() {
   if (!canSubmit.value) return
   emit('confirm', {
-    startedBy:  startedBy.value,
-    notes:      notes.value,
+    startedBy: startedBy.value,
+    notes: notes.value,
     recipeName: selectedRecipe.value,
-    doSensor:   needsDo.value ? selectedDoSensor.value : null,
-    diSensor:   needsDi.value ? selectedDiSensor.value : null,
+    doSensor: needsDo.value ? selectedDoSensor.value : null,
+    diSensor: needsDi.value ? selectedDiSensor.value : null,
   })
 }
 
 function onKeydown(e) {
-  if (e.key === 'Enter' && e.ctrlKey) submit()
-  if (e.key === 'Escape') emit('cancel')
+  if (e.key === 'Enter' && e.ctrlKey) 
+    submit()
+  
+  if (e.key === 'Escape') 
+    emit('cancel')
 }
 </script>
 
