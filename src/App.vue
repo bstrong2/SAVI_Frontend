@@ -12,6 +12,8 @@ import LoggingDetails from './components/views/LoggingDetails.vue'
 import Recipe from './components/views/Recipe.vue'
 import Settings from './components/views/Settings.vue'
 import Users from './components/views/Users.vue'
+import { PERMISSIONS, canAccess } from './auth/roles.js'
+import { RUN_COMMANDS, OTHER_COMMANDS } from './commands.js'
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
 
@@ -551,27 +553,24 @@ async function executeRecipe(recipe, doSensor, diSensor) {
   if (doSensor) await callRelay(doSensor, false)
   if (runState.value === 'running') {
     addLog(`Recipe complete — stopping run`, 'Info')
-    handleRunCommand('stop')
+    handleRunCommand(RUN_COMMANDS.Stop)
   }
 }
 
 async function handleRunCommand(cmd) {
-  // 'start' shows the info modal first — don't transition until confirmed
-  if (cmd === 'start') {
+  if (cmd === RUN_COMMANDS.Start) {
     showStartRun.value = true
     return
   }
 
-  // 'log-only' — show sensor-picker modal first, same as 'start' shows StartRunModal
-  if (cmd === 'log-only') {
+  if (cmd === RUN_COMMANDS.LogOnly) {
     showLogOnly.value = true
     return
   }
 
-  // All other transitions happen immediately
-  if (cmd === 'pause')  runState.value = 'paused'
-  if (cmd === 'resume') runState.value = 'running'
-  if (cmd === 'stop') {
+  if (cmd === RUN_COMMANDS.Pause)  runState.value = 'paused'
+  if (cmd === RUN_COMMANDS.Resume) runState.value = 'running'
+  if (cmd === RUN_COMMANDS.Stop) {
     const dbRunId = runInfo.value?.dbRunId
     runState.value = 'idle'
     if (runInfo.value) runInfo.value = { ...runInfo.value, status: 'Stopped', selectedSensors: [] }
@@ -687,13 +686,13 @@ async function handleLogOnlyConfirmed(info) {
 }
 
 function handleOtherCommand(cmd) {
-  if (cmd === 'login')           showLogin.value = true
-  if (cmd === 'logout')          handleLogout()
-  if (cmd === 'generate-report') showReport.value = true
+  if (cmd === OTHER_COMMANDS.Login)          showLogin.value = true
+  if (cmd === OTHER_COMMANDS.Logout)         handleLogout()
+  if (cmd === OTHER_COMMANDS.GenerateReport) showReport.value = true
 }
 
 function handleNavigate(view) {
-  if (view === 'users' && currentUser.value?.role !== 'Admin') return
+  if (view === 'users' && !canAccess(currentUser.value, PERMISSIONS.AdminOnly)) return
   if ((view === 'settings' || view === 'logging-details') && !currentUser.value) return
   activeView.value = view
 }

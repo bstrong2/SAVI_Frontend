@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, inject, onMounted, onUnmounted } from 'vue'
 import AddSensorModal from '../AddSensorModal.vue'
+import { PERMISSIONS, canAccess } from '../../auth/roles.js'
 
 const BACKEND_URL = inject('BACKEND_URL', 'http://localhost:5176')
 const authToken = inject('authToken')
@@ -11,9 +12,7 @@ const devices = inject('devices', ref([]))
 const runState = inject('runState', ref('idle'))
 const runInfo = inject('runInfo',  ref(null))
 
-const canOperate = computed(() =>
-  currentUser?.value?.role === 'Admin' || currentUser?.value?.role === 'Operator'
-)
+const canOperate = computed(() => canAccess(currentUser?.value, PERMISSIONS.OperatorOnly))
 const isRunning = computed(() =>
   runState.value === 'running' || runState.value === 'paused'
 )

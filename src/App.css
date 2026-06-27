@@ -193,6 +193,8 @@ html, body {
 }
 
 .ribbon-icon { font-size: 22px; line-height: 1; }
+.ribbon-btn.active .ribbon-icon,
+.ribbon-btn:active .ribbon-icon { color: #fff !important; }
 
 /* Run button accent colors (override when not active) */
 .ribbon-btn.run-start:not(.active)    { color: #388e3c; }

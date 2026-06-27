@@ -1,10 +1,11 @@
 <script setup>
 import { ref, inject, onMounted } from 'vue'
+import { ALL_ROLES } from '../../auth/roles.js'
 
 const BACKEND_URL = inject('BACKEND_URL', 'http://localhost:5176')
 const authToken   = inject('authToken')
 
-const roles = ['Admin', 'Operator', 'Viewer']
+const roles = ALL_ROLES
 
 const username     = ref('')
 const password     = ref('')
