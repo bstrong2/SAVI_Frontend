@@ -2,18 +2,22 @@
   import { ref, computed, inject } from 'vue'
   import { DRIVERS } from '../constants/devices.js'
 
+  
   /////////////////////////////////////////////
-  // Defining the emits.
-  const emit = defineEmits(['confirm', 'cancel'])
+  // Define variables.
+  const notes = ref('')
+  const selectedIds = ref(new Set())
 
   // Getting other information that we need in this page.
   const currentUser = inject('currentUser')
   const layoutItems = inject('layoutItems')
 
+  // define emits:
+  const emit = defineEmits(['confirm', 'cancel'])
+
+
   /////////////////////////////////////////////
-  // Define variables.
-  const notes = ref('')
-  const selectedIds = ref(new Set())
+  // Define computed properties.
 
   // All sensors that are placed in the device layout page.
   const sensorList = computed(() => {
@@ -30,7 +34,7 @@
     return `${currentUser.value.username} (${currentUser.value.role})`
   })
 
-    const allSelected = computed(() => {
+  const allSelected = computed(() => {
     if (sensorList.value.length === 0) 
       return false
 
@@ -38,6 +42,7 @@
   })
 
   const canSubmit = computed(() => selectedIds.value.size > 0)
+
 
   /////////////////////////////////////////////
   // Defining all functions now.
@@ -63,7 +68,7 @@
   function submit() {
     if (!canSubmit.value) 
       return
-
+    
     // Get the sensors that were selected and only take a subset of the full list. We don't need to send all the information back 
     // do the parent as it's not needed for anything that we are doing.
     const selectedSensors = sensorList.value.filter(s => selectedIds.value.has(s.id))
@@ -107,7 +112,7 @@
   <div class="dialog-overlay" @click.self="emit('cancel')" @keydown="onKeydown" tabindex="0">
     <div class="dialog-box log-only-dialog">
 
-      <h3 class="log-only-title">Log Only</h3>
+      <h3 class="dialog-title">Log Only</h3>
 
       <!-- Started By (read-only) -->
       <div class="dialog-row">
@@ -130,7 +135,7 @@
       <div class="log-only-section">
 
         <div class="log-only-section-header">
-          <span class="log-only-section-label">Sensors to Log</span>
+          <span class="section-label">Sensors to Log</span>
           <span v-if="sensorList.length > 0" class="log-only-section-actions">
             <button class="link-btn" @click="selectAll" :disabled="allSelected">Select All</button>
             <span class="link-sep">·</span>
@@ -178,17 +183,8 @@
     overflow-y: auto;
   }
 
-  .log-only-title {
-    margin: 0 0 14px;
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--text-primary);
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 8px;
-  }
-
-  .log-only-notes-row { 
-    align-items: flex-start; 
+  .log-only-notes-row {
+    align-items: flex-start;
   }
 
   .log-only-textarea {
@@ -208,14 +204,6 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: 6px;
-  }
-
-  .log-only-section-label {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-secondary);
   }
 
   .log-only-section-actions {

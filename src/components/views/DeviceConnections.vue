@@ -1,141 +1,149 @@
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+  import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 
-// ── Tree data ──────────────────────────────────────────────────────────────
-const root = ref({
-  expanded: true,
-  children: [
-    {
-      id: 1, name: 'COM Device', type: 'com', expanded: false,
-      properties: [
-        { name: 'ComName',  value: 'COM1', description: 'COM port name (e.g., COM1)', propType: 'string', editing: false },
-        { name: 'BaudRate', value: '9600', description: 'Baud rate for communication',  propType: 'int',    editing: false },
-      ],
-    },
-    {
-      id: 2, name: 'IP Device', type: 'ip', expanded: false,
-      properties: [
-        { name: 'IpAddress',  value: '192.168.1.100', description: 'IP address of the device',   propType: 'string', editing: false },
-        { name: 'PortNumber', value: '502',            description: 'Port number for connection', propType: 'int',    editing: false },
-      ],
-    },
-  ],
-})
+  
+  /////////////////////////////////////////////
+  // Define variables.
 
-let nextId = 3
-
-// ── Context menu ───────────────────────────────────────────────────────────
-const ctx = ref({ visible: false, x: 0, y: 0, mode: null, target: null })
-
-function onRootRightClick(e) {
-  e.preventDefault()
-  e.stopPropagation()
-  ctx.value = { visible: true, x: e.clientX, y: e.clientY, mode: 'category', target: null }
-}
-
-function onDeviceRightClick(e, device) {
-  e.preventDefault()
-  e.stopPropagation()
-  ctx.value = { visible: true, x: e.clientX, y: e.clientY, mode: 'device', target: device }
-}
-
-function hideCtx() { ctx.value.visible = false }
-
-function addDevice(type) {
-  const id = nextId++
-  root.value.children.push(
-    type === 'com'
-      ? {
-          id, name: 'COM Device', type: 'com', expanded: true,
-          properties: [
-            { name: 'ComName',  value: '',     description: 'COM port name (e.g., COM1)',   propType: 'string', editing: false },
-            { name: 'BaudRate', value: '9600', description: 'Baud rate for communication',  propType: 'int',    editing: false },
-          ],
-        }
-      : {
-          id, name: 'IP Device', type: 'ip', expanded: true,
-          properties: [
-            { name: 'IpAddress',  value: '',    description: 'IP address of the device',    propType: 'string', editing: false },
-            { name: 'PortNumber', value: '502', description: 'Port number for connection',  propType: 'int',    editing: false },
-          ],
-        }
-  )
-  hideCtx()
-}
-
-function deleteDevice(device) {
-  root.value.children = root.value.children.filter(d => d.id !== device.id)
-  hideCtx()
-}
-
-// ── Inline editing ─────────────────────────────────────────────────────────
-function startEdit(prop) {
-  // close all others first
-  root.value.children.forEach(d => d.properties.forEach(p => { p.editing = false }))
-  prop.editing = true
-  nextTick(() => {
-    const el = document.querySelector('.prop-edit-active input, .prop-edit-active select')
-    if (el) { el.focus(); el.select?.() }
+  // Have hardcoded data so there is something there on first boot.
+  const root = ref({
+    expanded: true,
+    children: [
+      {
+        id: 1, name: 'COM Device', type: 'com', expanded: false,
+        properties: [
+          { name: 'ComName',  value: 'COM1', description: 'COM port name (e.g., COM1)', propType: 'string', editing: false },
+          { name: 'BaudRate', value: '9600', description: 'Baud rate for communication',  propType: 'int',    editing: false },
+        ],
+      },
+      {
+        id: 2, name: 'IP Device', type: 'ip', expanded: false,
+        properties: [
+          { name: 'IpAddress',  value: '192.168.1.100', description: 'IP address of the device',   propType: 'string', editing: false },
+          { name: 'PortNumber', value: '502',            description: 'Port number for connection', propType: 'int',    editing: false },
+        ],
+      },
+    ],
   })
-}
 
-function commitEdit(prop) { prop.editing = false }
+  let nextId = 3
 
-function onEditKey(e, prop) {
-  if (e.key === 'Enter' || e.key === 'Escape') commitEdit(prop)
-}
+  // Context menu state.
+  const ctx = ref({ visible: false, x: 0, y: 0, mode: null, target: null })
 
-// ── Save / Load ────────────────────────────────────────────────────────────
-function saveSettings() {
-  const data = root.value.children.map(d => ({
-    id: d.id, name: d.name, type: d.type,
-    properties: d.properties.map(p => ({ name: p.name, value: p.value })),
-  }))
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href = url; a.download = 'device_connections.json'; a.click()
-  URL.revokeObjectURL(url)
-}
+  /////////////////////////////////////////////
+  // Mounts
+  onMounted(()   => window.addEventListener('click', hideCtx))
+  onUnmounted(() => window.removeEventListener('click', hideCtx))
 
-function loadSettings() {
-  const input = document.createElement('input')
-  input.type = 'file'; input.accept = '.json'
-  input.onchange = e => {
-    const file = e.target.files[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result)
-        root.value.children = data.map(d => ({
-          ...d, expanded: false,
-          properties: d.properties.map(p => ({
-            ...p,
-            propType: ['BaudRate','PortNumber'].includes(p.name) ? 'int' : 'string',
-            description: propDesc(p.name),
-            editing: false,
-          })),
-        }))
-        nextId = Math.max(...root.value.children.map(d => d.id), nextId) + 1
-      } catch { alert('Invalid file format') }
-    }
-    reader.readAsText(file)
+
+  /////////////////////////////////////////////
+  // Defining all functions.
+
+  function hideCtx() { ctx.value.visible = false }
+
+  function onRootRightClick(e) {
+    e.preventDefault()
+    e.stopPropagation()
+    ctx.value = { visible: true, x: e.clientX, y: e.clientY, mode: 'category', target: null }
   }
-  input.click()
-}
 
-function propDesc(name) {
-  return {
-    ComName:    'COM port name (e.g., COM1)',
-    BaudRate:   'Baud rate for communication',
-    IpAddress:  'IP address of the device',
-    PortNumber: 'Port number for connection',
-  }[name] ?? ''
-}
+  function onDeviceRightClick(e, device) {
+    e.preventDefault()
+    e.stopPropagation()
+    ctx.value = { visible: true, x: e.clientX, y: e.clientY, mode: 'device', target: device }
+  }
 
-onMounted(()   => window.addEventListener('click', hideCtx))
-onUnmounted(() => window.removeEventListener('click', hideCtx))
+  function addDevice(type) {
+    const id = nextId++
+    root.value.children.push(
+      type === 'com'
+        ? {
+            id, name: 'COM Device', type: 'com', expanded: true,
+            properties: [
+              { name: 'ComName',  value: '',     description: 'COM port name (e.g., COM1)',   propType: 'string', editing: false },
+              { name: 'BaudRate', value: '9600', description: 'Baud rate for communication',  propType: 'int',    editing: false },
+            ],
+          }
+        : {
+            id, name: 'IP Device', type: 'ip', expanded: true,
+            properties: [
+              { name: 'IpAddress',  value: '',    description: 'IP address of the device',    propType: 'string', editing: false },
+              { name: 'PortNumber', value: '502', description: 'Port number for connection',  propType: 'int',    editing: false },
+            ],
+          }
+    )
+    hideCtx()
+  }
+
+  function deleteDevice(device) {
+    root.value.children = root.value.children.filter(d => d.id !== device.id)
+    hideCtx()
+  }
+
+  // Close all other edits and open this one, then focus the input.
+  function startEdit(prop) {
+    root.value.children.forEach(d => d.properties.forEach(p => { p.editing = false }))
+    prop.editing = true
+    nextTick(() => {
+      const el = document.querySelector('.prop-edit-active input, .prop-edit-active select')
+      if (el) { el.focus(); el.select?.() }
+    })
+  }
+
+  function commitEdit(prop) { prop.editing = false }
+
+  function onEditKey(e, prop) {
+    if (e.key === 'Enter' || e.key === 'Escape') commitEdit(prop)
+  }
+
+  function saveSettings() {
+    const data = root.value.children.map(d => ({
+      id: d.id, name: d.name, type: d.type,
+      properties: d.properties.map(p => ({ name: p.name, value: p.value })),
+    }))
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const url  = URL.createObjectURL(blob)
+    const downloadLink = document.createElement('a')
+    downloadLink.href = url; downloadLink.download = 'device_connections.json'; downloadLink.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function loadSettings() {
+    const input = document.createElement('input')
+    input.type = 'file'; input.accept = '.json'
+    input.onchange = e => {
+      const file = e.target.files[0]
+      if (!file) return
+      const reader = new FileReader()
+      reader.onload = ev => {
+        try {
+          const data = JSON.parse(ev.target.result)
+          root.value.children = data.map(d => ({
+            ...d, expanded: false,
+            properties: d.properties.map(p => ({
+              ...p,
+              propType: ['BaudRate','PortNumber'].includes(p.name) ? 'int' : 'string',
+              description: propDesc(p.name),
+              editing: false,
+            })),
+          }))
+          nextId = Math.max(...root.value.children.map(d => d.id), nextId) + 1
+        } catch { alert('Invalid file format') }
+      }
+      reader.readAsText(file)
+    }
+    input.click()
+  }
+
+  function propDesc(name) {
+    return {
+      ComName:    'COM port name (e.g., COM1)',
+      BaudRate:   'Baud rate for communication',
+      IpAddress:  'IP address of the device',
+      PortNumber: 'Port number for connection',
+    }[name] ?? ''
+  }
 </script>
 
 <template>
@@ -292,9 +300,15 @@ onUnmounted(() => window.removeEventListener('click', hideCtx))
 }
 
 /* Shared column widths */
-.dc-col-name  { width: 240px; flex-shrink: 0; padding: 0 8px; display: flex; align-items: center; gap: 4px; }
-.dc-col-value { width: 200px; flex-shrink: 0; padding: 0 6px; display: flex; align-items: center; }
-.dc-col-desc  { flex: 1; padding: 0 8px; display: flex; align-items: center; font-size: 11px; color: var(--text-secondary); }
+.dc-col-name  { 
+  width: 240px; flex-shrink: 0; padding: 0 8px; display: flex; align-items: center; gap: 4px; 
+}
+.dc-col-value { 
+  width: 200px; flex-shrink: 0; padding: 0 6px; display: flex; align-items: center; 
+}
+.dc-col-desc  { 
+  flex: 1; padding: 0 8px; display: flex; align-items: center; font-size: 11px; color: var(--text-secondary); 
+}
 
 /* Rows */
 .dc-row {
@@ -304,7 +318,9 @@ onUnmounted(() => window.removeEventListener('click', hideCtx))
   border-bottom: 1px solid var(--border-color);
   cursor: default;
 }
-.dc-row:hover { background: var(--bg-table-hover); }
+.dc-row:hover { 
+  background: var(--bg-table-hover); 
+}
 
 .dc-row-category {
   background: var(--bg-table-header);
@@ -312,7 +328,9 @@ onUnmounted(() => window.removeEventListener('click', hideCtx))
   font-size: 13px;
   cursor: pointer;
 }
-.dc-row-category:hover { background: var(--bg-ribbon-btn-hover); }
+.dc-row-category:hover { 
+  background: var(--bg-ribbon-btn-hover); 
+}
 
 .dc-row-device {
   background: var(--bg-table-alt);
@@ -320,16 +338,24 @@ onUnmounted(() => window.removeEventListener('click', hideCtx))
   font-size: 12px;
   cursor: pointer;
 }
-.dc-row-device:hover { background: var(--bg-table-hover); }
+.dc-row-device:hover { 
+  background: var(--bg-table-hover); 
+}
 
 .dc-row-prop {
   font-size: 12px;
 }
 
 /* Indentation & toggles */
-.dc-indent { display: inline-block; width: 18px; flex-shrink: 0; }
-.dc-toggle { font-size: 10px; color: var(--text-secondary); flex-shrink: 0; }
-.dc-device-icon { flex-shrink: 0; }
+.dc-indent { 
+  display: inline-block; width: 18px; flex-shrink: 0; 
+}
+.dc-toggle { 
+  font-size: 10px; color: var(--text-secondary); flex-shrink: 0; 
+}
+.dc-device-icon { 
+  flex-shrink: 0; 
+}
 
 /* Value display */
 .dc-value-display {
@@ -339,7 +365,9 @@ onUnmounted(() => window.removeEventListener('click', hideCtx))
   border-radius: 2px;
   border: 1px solid transparent;
 }
-.dc-row-prop:hover .dc-value-display { border-color: var(--border-color); }
+.dc-row-prop:hover .dc-value-display { 
+  border-color: var(--border-color); 
+}
 
 /* Inline inputs */
 .dc-input {
@@ -353,36 +381,11 @@ onUnmounted(() => window.removeEventListener('click', hideCtx))
   color: var(--text-primary);
   outline: none;
 }
-.dc-input-num { width: 100px; }
-
-/* Context menu */
-.dc-context-menu {
-  position: fixed;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
-  z-index: 500;
-  min-width: 160px;
-  padding: 3px 0;
+.dc-input-num { 
+  width: 100px; 
 }
 
-.ctx-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  background: transparent;
-  border: none;
-  padding: 7px 14px;
-  text-align: left;
-  font-size: 13px;
-  font-family: inherit;
-  color: var(--text-primary);
-  cursor: pointer;
+.ctx-icon {
+  font-size: 14px;
 }
-.ctx-item:hover { background: var(--bg-ribbon-btn-hover); }
-.ctx-item-danger { color: #e53935; }
-.ctx-item-danger:hover { background: #fdecea; }
-.ctx-icon { font-size: 14px; }
 </style>

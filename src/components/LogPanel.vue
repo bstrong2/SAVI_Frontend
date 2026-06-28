@@ -1,6 +1,7 @@
 <script setup>
   import { ref, watch, nextTick } from 'vue'
 
+  
   /////////////////////////////////////////////
   // Define variables.
   const props = defineProps({
@@ -9,6 +10,10 @@
   })
 
   const listEnd = ref(null)
+
+
+  /////////////////////////////////////////////
+  // Watch for changes.
 
   // Watch the entries. We are doing this because if a new message comes in and it's past the full view of the log body.
   // (the log body now has a scroll bar.) We need to have the scroll be moved so we can see the entry.

@@ -2,17 +2,27 @@
   import { ref, computed, watch, inject, onMounted } from 'vue'
   import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS, SIMULATED_TYPES } from '../constants/devices.js'
 
-  const emit = defineEmits(['add', 'close'])
 
-  const BACKEND_URL = inject('BACKEND_URL')
-  const devices = inject('devices')
-  const addLog = inject('addLog', (msg, level) => console.error(msg))
-
+  /////////////////////////////////////////////
+  // Define variables.
   const displayName = ref('')
   const selectedConnection = ref(DRIVERS.Simulated)
   const selectedDriver = ref('')
   const pinNumber = ref(18)
+  // Sensor types fetched from the backend (used when a real device is selected)
+  const sensorTypes = ref([])
 
+  // define emits
+  const emit = defineEmits(['add', 'close'])
+
+  // injecting things that we need for this dialog.
+  const BACKEND_URL = inject('BACKEND_URL')
+  const devices = inject('devices')
+  const addLog = inject('addLog', (msg, level) => console.error(msg))
+
+
+  /////////////////////////////////////////////
+  // Define computed properties.
   const showPinField = computed(() =>
     selectedConnection.value !== DRIVERS.Simulated &&
     (selectedDriver.value === DRIVERS.Relay || selectedDriver.value === DRIVERS.CollisionDetector)
@@ -44,13 +54,13 @@
     return list
   })
 
-  // Sensor types fetched from the backend (used when a real device is selected)
-  const sensorTypes = ref([])
-
   // Show simulated types when Simulated is selected, backend types otherwise
   const availableTypes = computed(() =>
     selectedConnection.value === DRIVERS.Simulated ? SIMULATED_TYPES : sensorTypes.value
   )
+
+  /////////////////////////////////////////////
+  // Watch for changes.
 
   // If you switch connection types different sensor types might be different. Check to make sure that the new list
   // has the same driver available for selection. If not then put set it to the first selection in the list.
@@ -67,6 +77,10 @@
   // Make sure to run this on mount.
   { immediate: true })
 
+
+  /////////////////////////////////////////////
+  // Mounts
+
   onMounted(async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/sensors`)
@@ -80,6 +94,9 @@
       }
   })
 
+
+  /////////////////////////////////////////////
+  // Defining all functions.
   function submit() {
     const name = displayName.value.trim()
 

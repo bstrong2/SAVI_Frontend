@@ -794,3 +794,50 @@ input[readonly]:focus, textarea[readonly]:focus {
   justify-content: flex-end;
   margin-top: 14px;
 }
+
+.dialog-title {
+  margin: 0 0 14px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+}
+
+/* ── Context menu ── */
+.dc-context-menu {
+  position: fixed;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+  z-index: 500;
+  min-width: 160px;
+  padding: 3px 0;
+}
+
+.ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 7px 14px;
+  text-align: left;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.ctx-item:hover       { background: var(--bg-ribbon-btn-hover); }
+.ctx-item-danger      { color: #e53935; }
+.ctx-item-danger:hover { background: #fdecea; }

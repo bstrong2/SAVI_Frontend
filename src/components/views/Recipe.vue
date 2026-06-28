@@ -133,132 +133,136 @@
 </template>
 
 <style scoped>
-.recipe-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
+  .recipe-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
 
-/* ── Body ── */
-.recipe-body {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
+  /* ── Body ── */
+  .recipe-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
 
-/* ── Left panel ── */
-.recipe-left-panel {
-  width: 220px;
-  min-width: 160px;
-  display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--border-color);
-  overflow-y: auto;
-  flex-shrink: 0;
-}
+  /* ── Left panel ── */
+  .recipe-left-panel {
+    width: 220px;
+    min-width: 160px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
 
-.panel-section {
-  border-bottom: 1px solid var(--border-color);
-}
+  .panel-section {
+    border-bottom: 1px solid var(--border-color);
+  }
 
-.panel-section-title {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
-  padding: 6px 10px 4px;
-  background: var(--bg-table-alt);
-}
+  .panel-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    padding: 6px 10px 4px;
+    background: var(--bg-table-alt);
+  }
 
-.recipe-tree { padding: 4px 0; }
+  .recipe-tree { 
+    padding: 4px 0; 
+  }
 
-.tree-node {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  font-size: 12px;
-  color: var(--text-primary);
-}
+  .tree-node {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    font-size: 12px;
+    color: var(--text-primary);
+  }
 
-.tree-child { padding-left: 14px; }
+  .tree-child { 
+    padding-left: 14px; 
+  }
 
-/* ── Right panel ── */
-.recipe-right-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+  /* ── Right panel ── */
+  .recipe-right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
 
-.recipe-grid-wrapper {
-  flex: 1;
-  overflow: auto;
-}
+  .recipe-grid-wrapper {
+    flex: 1;
+    overflow: auto;
+  }
 
-/* ── Segment grid ── */
-.recipe-grid {
-  border-collapse: collapse;
-  font-size: 12px;
-  min-width: 100%;
-}
+  /* ── Segment grid ── */
+  .recipe-grid {
+    border-collapse: collapse;
+    font-size: 12px;
+    min-width: 100%;
+  }
 
-.recipe-grid th,
-.recipe-grid td {
-  border: 1px solid var(--border-color);
-  padding: 4px 8px;
-  white-space: nowrap;
-}
+  .recipe-grid th,
+  .recipe-grid td {
+    border: 1px solid var(--border-color);
+    padding: 4px 8px;
+    white-space: nowrap;
+  }
 
-.recipe-grid thead th {
-  background: var(--bg-table-alt);
-  font-weight: 600;
-  text-align: center;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
+  .recipe-grid thead th {
+    background: var(--bg-table-alt);
+    font-weight: 600;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
 
-.row-header {
-  background: var(--bg-table-alt);
-  font-weight: 600;
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  min-width: 160px;
-}
+  .row-header {
+    background: var(--bg-table-alt);
+    font-weight: 600;
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 160px;
+  }
 
-.row-group-header td {
-  background: var(--bg-panel);
-  padding: 2px 8px;
-}
+  .row-group-header td {
+    background: var(--bg-panel);
+    padding: 2px 8px;
+  }
 
-.row-group-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-secondary);
-}
+  .row-group-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+  }
 
-.row-indent { font-weight: 400; padding-left: 20px; }
+  .row-indent { font-weight: 400; padding-left: 20px; }
 
-.recipe-grid input,
-.recipe-grid select {
-  width: 110px;
-  font-size: 12px;
-  font-family: inherit;
-  background: transparent;
-  border: none;
-  color: var(--text-primary);
-  text-align: center;
-}
+  .recipe-grid input,
+  .recipe-grid select {
+    width: 110px;
+    font-size: 12px;
+    font-family: inherit;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    text-align: center;
+  }
 
-.add-step-col {
-  color: var(--text-secondary);
-  min-width: 30px;
-  text-align: center;
-}
+  .add-step-col {
+    color: var(--text-secondary);
+    min-width: 30px;
+    text-align: center;
+  }
 </style>

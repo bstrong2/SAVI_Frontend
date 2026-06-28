@@ -1,120 +1,127 @@
 <script setup>
-import { ref, computed, inject, watch, onMounted } from 'vue'
-import { DRIVERS } from '../constants/devices.js'
+  import { ref, computed, inject, watch, onMounted } from 'vue'
+  import { DRIVERS } from '../constants/devices.js'
 
-const emit = defineEmits(['confirm', 'cancel'])
 
-const BACKEND_URL = inject('BACKEND_URL')
-const currentUser = inject('currentUser')
-const layoutItems = inject('layoutItems', ref([]))
-const addLog = inject('addLog', (msg, level) => console.error(msg))
+  /////////////////////////////////////////////
+  // Define variables.
+  const notes = ref('')
+  const selectedRecipe = ref('')
+  // Recipes fetched from GET /api/recipes
+  const recipes = ref([])
+  const loading = ref(true)
+  const fetchErr = ref(false)
+  const selectedDoId = ref(null)
+  const selectedDiId = ref(null)
 
-const notes = ref('')
-const selectedRecipe = ref('')
+  // define emits
+  const emit = defineEmits(['confirm', 'cancel'])
 
-// Recipes fetched from GET /api/recipes
-const recipes = ref([])
-const loading = ref(true)
-const fetchErr = ref(false)
+  // injecting things that we need for this dialog.
+  const BACKEND_URL = inject('BACKEND_URL')
+  const currentUser = inject('currentUser')
+  const layoutItems = inject('layoutItems', ref([]))
+  const addLog = inject('addLog', (msg, level) => console.error(msg))
 
-onMounted(async () => {
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/recipes`)
-    if (res.ok) {
-      recipes.value = await res.json()
-      if (recipes.value.length) 
-        selectedRecipe.value = recipes.value[0].name
-    } else {
-      fetchErr.value = true
-    }
-  } catch (e) {
-    fetchErr.value = true
-    addLog(`Failed to fetch recipes: ${e.message}`, 'Error')
-  } finally {
-    loading.value = false
-  }
-})
 
-const startedBy = computed(() =>
-  currentUser?.value ? `${currentUser.value.username} (${currentUser.value.role})` : 'Unknown'
-)
+  /////////////////////////////////////////////
+  // Define computed properties.
+  const startedBy = computed(() =>
+    currentUser?.value ? `${currentUser.value.username} (${currentUser.value.role})` : 'Unknown')
 
-const selectedRecipeObj = computed(() =>
-  recipes.value.find(r => r.name === selectedRecipe.value) ?? null
-)
+  const selectedRecipeObj = computed(() =>
+    recipes.value.find(r => r.name === selectedRecipe.value) ?? null)
 
-const selectedRecipeDescription = computed(() =>
-  selectedRecipeObj.value?.description ?? ''
-)
+  const selectedRecipeDescription = computed(() =>
+    selectedRecipeObj.value?.description ?? '')
 
-// DO = relay tiles, DI = collision-detector tiles from the canvas
-const doSensors = computed(() =>
-  layoutItems.value.filter(i => i.type === 'sensor' && i.driver === DRIVERS.Relay)
-)
-const diSensors = computed(() =>
-  layoutItems.value.filter(i => i.type === 'sensor' && i.driver === DRIVERS.CollisionDetector)
-)
+  const doSensors = computed(() =>
+    layoutItems.value.filter(i => i.type === 'sensor' && i.driver === DRIVERS.Relay))
+  const diSensors = computed(() =>
+    layoutItems.value.filter(i => i.type === 'sensor' && i.driver === DRIVERS.CollisionDetector))
 
-const selectedDoId = ref(null)
-const selectedDiId = ref(null)
+    const selectedDoSensor = computed(() =>
+    doSensors.value.find(s => s.id === selectedDoId.value) ?? null)
+  const selectedDiSensor = computed(() =>
+    diSensors.value.find(s => s.id === selectedDiId.value) ?? null)
 
-// Default selections whenever the sensor lists change
-watch(doSensors, (list) => {
-  if (list.length && !list.find(s => s.id === selectedDoId.value))
-    selectedDoId.value = list[0].id
-}, { immediate: true })
+  const needsDo = computed(() => !!selectedRecipeObj.value?.requiresDo)
+  const needsDi = computed(() => !!selectedRecipeObj.value?.requiresDi)
 
-watch(diSensors, (list) => {
-  if (list.length && !list.find(s => s.id === selectedDiId.value))
-    selectedDiId.value = list[0].id
-}, { immediate: true })
+  const canSubmit = computed(() => {
+    if (!selectedRecipe.value) 
+      return false
+    if (needsDo.value && !selectedDoSensor.value) 
+      return false
+    if (needsDi.value && !selectedDiSensor.value) 
+      return false
 
-const selectedDoSensor = computed(() =>
-  doSensors.value.find(s => s.id === selectedDoId.value) ?? null
-)
-const selectedDiSensor = computed(() =>
-  diSensors.value.find(s => s.id === selectedDiId.value) ?? null
-)
-
-const needsDo = computed(() => !!selectedRecipeObj.value?.requiresDo)
-const needsDi = computed(() => !!selectedRecipeObj.value?.requiresDi)
-
-const canSubmit = computed(() => {
-  if (!selectedRecipe.value) 
-    return false
-  if (needsDo.value && !selectedDoSensor.value) 
-    return false
-  if (needsDi.value && !selectedDiSensor.value) 
-    return false
-
-  return true
-})
-
-function submit() {
-  if (!canSubmit.value) return
-  emit('confirm', {
-    startedBy: startedBy.value,
-    notes: notes.value,
-    recipeName: selectedRecipe.value,
-    doSensor: needsDo.value ? selectedDoSensor.value : null,
-    diSensor: needsDi.value ? selectedDiSensor.value : null,
+    return true
   })
-}
 
-function onKeydown(e) {
-  if (e.key === 'Enter' && e.ctrlKey) 
-    submit()
-  
-  if (e.key === 'Escape') 
-    emit('cancel')
-}
+
+  /////////////////////////////////////////////
+  // Mounts
+  onMounted(async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/recipes`)
+      if (res.ok) {
+        recipes.value = await res.json()
+        if (recipes.value.length) 
+          selectedRecipe.value = recipes.value[0].name
+      } else {
+        fetchErr.value = true
+      }
+    } catch (e) {
+      fetchErr.value = true
+      addLog(`Failed to fetch recipes... Is the backend running?\n ${e}`, 'Error')
+    } finally {
+      loading.value = false
+    }
+  })
+
+  /////////////////////////////////////////////
+  // Watch for changes.
+  watch(doSensors, (list) => {
+    if (list.length && !list.find(s => s.id === selectedDoId.value))
+      selectedDoId.value = list[0].id
+  }, { immediate: true })
+
+  watch(diSensors, (list) => {
+    if (list.length && !list.find(s => s.id === selectedDiId.value))
+      selectedDiId.value = list[0].id
+  }, { immediate: true })
+
+  /////////////////////////////////////////////
+  // Defining all functions.
+  function submit() {
+
+    if (!canSubmit.value) 
+      return
+    
+    emit('confirm', {
+      startedBy: startedBy.value,
+      notes: notes.value,
+      recipeName: selectedRecipe.value,
+      doSensor: needsDo.value ? selectedDoSensor.value : null,
+      diSensor: needsDi.value ? selectedDiSensor.value : null,
+    })
+  }
+
+  function onKeydown(e) {
+    if (e.key === 'Enter' && e.ctrlKey) 
+      submit()
+    
+    if (e.key === 'Escape') 
+      emit('cancel')
+  }
 </script>
 
 <template>
   <div class="dialog-overlay" @click.self="emit('cancel')" @keydown="onKeydown">
     <div class="dialog-box start-run-dialog">
 
-      <h3 class="start-run-title">Start Run</h3>
+      <h3 class="dialog-title">Start Run</h3>
 
       <!-- Started By (read-only) -->
       <div class="dialog-row">
@@ -135,7 +142,7 @@ function onKeydown(e) {
 
       <!-- Recipe section -->
       <div class="start-run-section">
-        <div class="start-run-section-label">Recipe</div>
+        <div class="section-label start-run-section-label">Recipe</div>
 
         <div v-if="loading" class="recipe-status">Loading recipes…</div>
         <div v-else-if="fetchErr" class="recipe-status recipe-error">Could not load recipes from backend.</div>
@@ -150,7 +157,7 @@ function onKeydown(e) {
           </select>
 
           <!-- Description -->
-          <div class="recipe-desc-label">Description:</div>
+          <div class="section-label recipe-desc-label">Description:</div>
           <textarea
             class="dialog-input recipe-description"
             :value="selectedRecipeDescription"
@@ -161,7 +168,7 @@ function onKeydown(e) {
 
           <!-- DO sensor selector -->
           <template v-if="needsDo">
-            <div class="sensor-select-label">
+            <div class="section-label sensor-select-label">
               Digital Output (Relay):
               <span v-if="doSensors.length === 0" class="sensor-warn">No relay tiles on canvas</span>
             </div>
@@ -178,7 +185,7 @@ function onKeydown(e) {
 
           <!-- DI sensor selector -->
           <template v-if="needsDi">
-            <div class="sensor-select-label">
+            <div class="section-label sensor-select-label">
               Digital Input (Collision Detector):
               <span v-if="diSensors.length === 0" class="sensor-warn">No DI tiles on canvas</span>
             </div>
@@ -216,15 +223,6 @@ function onKeydown(e) {
   overflow-y: auto;
 }
 
-.start-run-title {
-  margin: 0 0 14px;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 8px;
-}
-
 .start-run-notes-row { align-items: flex-start; }
 
 .start-run-textarea {
@@ -240,11 +238,6 @@ function onKeydown(e) {
 }
 
 .start-run-section-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
   margin-bottom: 6px;
 }
 
@@ -271,11 +264,6 @@ function onKeydown(e) {
 }
 
 .recipe-desc-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
   margin-bottom: 4px;
 }
 
@@ -295,11 +283,6 @@ function onKeydown(e) {
 
 /* ── Sensor selectors ── */
 .sensor-select-label {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-secondary);
   margin: 8px 0 4px;
   display: flex;
   align-items: center;

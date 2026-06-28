@@ -1,134 +1,143 @@
 <script setup>
-import { ref, inject, onMounted } from 'vue'
-import { ALL_ROLES } from '../../auth/roles.js'
+  import { ref, inject, onMounted } from 'vue'
+  import { ALL_ROLES } from '../../auth/roles.js'
 
-const BACKEND_URL = inject('BACKEND_URL')
-const authToken   = inject('authToken')
 
-const roles = ALL_ROLES
+  /////////////////////////////////////////////
+  // Define variables.
+  const roles = ALL_ROLES
 
-const username     = ref('')
-const password     = ref('')
-const selectedRole = ref('Operator')
-const isGlobal     = ref(false)
+  const username     = ref('')
+  const password     = ref('')
+  const selectedRole = ref('Operator')
+  const isGlobal     = ref(false)
 
-const users        = ref([])
-const loading      = ref(false)
-const error        = ref('')
-const addError     = ref('')
+  const users        = ref([])
+  const loading      = ref(false)
+  const error        = ref('')
+  const addError     = ref('')
 
-// Tracks the in-progress (unsaved) role selection per user id.
-// When a user picks a new role in the dropdown it goes here.
-// Cleared on confirm or cancel.
-const pendingRoles = ref({})   // { [userId]: string }
+  // Inject needed data for this view.
+  const BACKEND_URL = inject('BACKEND_URL')
+  const authToken   = inject('authToken')
 
-function authHeaders() {
-  return {
-    'Content-Type':  'application/json',
-    'Authorization': `Bearer ${authToken?.value ?? ''}`,
-  }
-}
+  // Tracks the in-progress (unsaved) role selection per user id.
+  // When a user picks a new role in the dropdown it goes here.
+  // Cleared on confirm or cancel.
+  const pendingRoles = ref({})   // { [userId]: string }
 
-async function fetchUsers() {
-  loading.value = true
-  error.value   = ''
-  pendingRoles.value = {}
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/users`, { headers: authHeaders() })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    users.value = await res.json()
-  } catch (e) {
-    error.value = `Failed to load users: ${e.message}`
-  } finally {
-    loading.value = false
-  }
-}
 
-async function addUser() {
-  if (!username.value.trim() || !password.value) return
-  addError.value = ''
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/users`, {
-      method:  'POST',
-      headers: authHeaders(),
-      body:    JSON.stringify({
-        username: username.value.trim(),
-        password: password.value,
-        role:     selectedRole.value,
-        isGlobal: isGlobal.value,
-      }),
-    })
-    if (res.status === 409) {
-      addError.value = 'Username already exists.'
-      return
+  /////////////////////////////////////////////
+  // Defining all functions.
+  function authHeaders() {
+    return {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${authToken?.value ?? ''}`,
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-    username.value     = ''
-    password.value     = ''
-    selectedRole.value = 'Operator'
-    isGlobal.value     = false
-    await fetchUsers()
-  } catch (e) {
-    addError.value = `Failed to add user: ${e.message}`
   }
-}
 
-// Called when the dropdown changes — just stages the new value, doesn't save yet.
-function onRoleChange(user, newRole) {
-  if (newRole === user.instanceRole) {
-    // Reverted back to saved value — clear the pending entry
+  async function fetchUsers() {
+    loading.value = true
+    error.value   = ''
+    pendingRoles.value = {}
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/users`, { headers: authHeaders() })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      users.value = await res.json()
+    } catch (e) {
+      error.value = `Failed to load users: ${e.message}`
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function addUser() {
+    if (!username.value.trim() || !password.value) return
+    addError.value = ''
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/users`, {
+        method:  'POST',
+        headers: authHeaders(),
+        body:    JSON.stringify({
+          username: username.value.trim(),
+          password: password.value,
+          role:     selectedRole.value,
+          isGlobal: isGlobal.value,
+        }),
+      })
+      if (res.status === 409) {
+        addError.value = 'Username already exists.'
+        return
+      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+      username.value     = ''
+      password.value     = ''
+      selectedRole.value = 'Operator'
+      isGlobal.value     = false
+      await fetchUsers()
+    } catch (e) {
+      addError.value = `Failed to add user: ${e.message}`
+    }
+  }
+
+  // Called when the dropdown changes — just stages the new value, doesn't save yet.
+  function onRoleChange(user, newRole) {
+    if (newRole === user.instanceRole) {
+      // Reverted back to saved value — clear the pending entry
+      const updated = { ...pendingRoles.value }
+      delete updated[user.id]
+      pendingRoles.value = updated
+    } else {
+      pendingRoles.value = { ...pendingRoles.value, [user.id]: newRole }
+    }
+  }
+
+  // Discard the staged change without saving.
+  function cancelRoleEdit(user) {
     const updated = { ...pendingRoles.value }
     delete updated[user.id]
     pendingRoles.value = updated
-  } else {
-    pendingRoles.value = { ...pendingRoles.value, [user.id]: newRole }
   }
-}
 
-// Discard the staged change without saving.
-function cancelRoleEdit(user) {
-  const updated = { ...pendingRoles.value }
-  delete updated[user.id]
-  pendingRoles.value = updated
-}
+  // Confirm and send the staged role to the backend.
+  async function confirmRoleUpdate(user) {
+    const newRole = pendingRoles.value[user.id]
+    if (!newRole || newRole === user.instanceRole) return
 
-// Confirm and send the staged role to the backend.
-async function confirmRoleUpdate(user) {
-  const newRole = pendingRoles.value[user.id]
-  if (!newRole || newRole === user.instanceRole) return
+    error.value = ''
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/users/${user.id}/role`, {
+        method:  'PATCH',
+        headers: authHeaders(),
+        body:    JSON.stringify({ role: newRole }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
 
-  error.value = ''
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/users/${user.id}/role`, {
-      method:  'PATCH',
-      headers: authHeaders(),
-      body:    JSON.stringify({ role: newRole }),
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-
-    // Commit the change locally and clear the pending entry
-    user.instanceRole = newRole
-    cancelRoleEdit(user)
-  } catch (e) {
-    error.value = `Failed to update role: ${e.message}`
+      // Commit the change locally and clear the pending entry
+      user.instanceRole = newRole
+      cancelRoleEdit(user)
+    } catch (e) {
+      error.value = `Failed to update role: ${e.message}`
+    }
   }
-}
 
-async function removeUser(user) {
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/users/${user.id}`, {
-      method:  'DELETE',
-      headers: authHeaders(),
-    })
-    if (!res.ok) throw new Error(`HTTP ${res.status}`)
-    await fetchUsers()
-  } catch (e) {
-    error.value = `Failed to remove user: ${e.message}`
+  async function removeUser(user) {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/users/${user.id}`, {
+        method:  'DELETE',
+        headers: authHeaders(),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      await fetchUsers()
+    } catch (e) {
+      error.value = `Failed to remove user: ${e.message}`
+    }
   }
-}
 
-onMounted(fetchUsers)
+  /////////////////////////////////////////////
+  // Mounts
+  onMounted(fetchUsers)
 </script>
 
 <template>
@@ -225,37 +234,37 @@ onMounted(fetchUsers)
 </template>
 
 <style scoped>
-/* Role cell: dropdown + Update/Cancel inline */
-.role-cell {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
+  /* Role cell: dropdown + Update/Cancel inline */
+  .role-cell {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
 
-.role-select {
-  font-size: 13px;
-  padding: 2px 6px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--bg-input, var(--bg-panel));
-  color: var(--text-primary);
-  cursor: pointer;
-}
+  .role-select {
+    font-size: 13px;
+    padding: 2px 6px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--bg-input, var(--bg-panel));
+    color: var(--text-primary);
+    cursor: pointer;
+  }
 
-.role-select:focus {
-  outline: 2px solid var(--accent-color, #1976d2);
-  outline-offset: 1px;
-}
+  .role-select:focus {
+    outline: 2px solid var(--accent-color, #1976d2);
+    outline-offset: 1px;
+  }
 
-/* Extra-small button variant for inline row actions */
-.btn-xs {
-  font-size: 11px;
-  padding: 2px 7px;
-  line-height: 1.4;
-}
+  /* Extra-small button variant for inline row actions */
+  .btn-xs {
+    font-size: 11px;
+    padding: 2px 7px;
+    line-height: 1.4;
+  }
 
-/* Subtle highlight on rows with a pending (unsaved) change */
-.row-dirty td {
-  background: color-mix(in srgb, var(--accent-color, #1976d2) 6%, transparent);
-}
+  /* Subtle highlight on rows with a pending (unsaved) change */
+  .row-dirty td {
+    background: color-mix(in srgb, var(--accent-color, #1976d2) 6%, transparent);
+  }
 </style>

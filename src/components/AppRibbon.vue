@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import { PERMISSIONS, canAccess } from '../auth/roles.js'
 import { RUN_COMMANDS, OTHER_COMMANDS } from '../constants/commands.js'
 
+/////////////////////////////////////////////
+// Define variables.
 const props = defineProps({
   activeView: String,
   connectionStatus: String,
@@ -12,7 +14,21 @@ const props = defineProps({
   runState: { type: String, default: 'idle' },
 })
 
+// Define what buttons are available based on what user level is logged in.
+const allScreensButtons = [
+  { id: 'device-layout', icon: 'table-cells', color: '#60A5FA', label: 'Device Layout', permission: PERMISSIONS.Public },
+  { id: 'logging-details', icon: 'chart-line', color: '#A78BFA', label: 'Log Details', permission: PERMISSIONS.AuthRequired },
+  { id: 'recipe', icon: 'list-check', color: '#FB923C', label: 'Recipe (WIP)', permission: PERMISSIONS.OperatorOnly },
+  { id: 'settings', icon: 'gear', color: '#9CA3AF', label: 'Settings', permission: PERMISSIONS.OperatorOnly },
+  { id: 'users', icon: 'users', color: '#A78BFA', label: 'Users', permission: PERMISSIONS.AdminOnly},
+]
+
+// define emits
 const emit = defineEmits(['navigate', 'run-command', 'other-command', 'toggle-theme'])
+
+
+/////////////////////////////////////////////
+// Define computed properties.
 
 // Determine if buttons in the log details view should show up.
 // Derived from parent-controlled runState prop, will change during run time so need to have this as computed.
@@ -29,6 +45,13 @@ const themeIcon  = computed(() => props.isDark ? 'sun' : 'moon')
 const themeColor = computed(() => props.isDark ? '#FB923C' : '#94A3B8')
 const themeTitle = computed(() => props.isDark ? 'Switch to light mode' : 'Switch to dark mode')
 
+// Determine what buttons to show in the ribbon based on the users access level.
+const screensButtons = computed(() =>
+  allScreensButtons.filter(b => canAccess(props.currentUser, b.permission))
+)
+
+/////////////////////////////////////////////
+// Defining all functions.
 function handleRun(cmd) {
   if (!canOperate.value) 
     return
@@ -37,19 +60,6 @@ function handleRun(cmd) {
   emit('run-command', cmd)
 }
 
-// Define what buttons are available based on what user level is logged in.
-const allScreensButtons = [
-  { id: 'device-layout', icon: 'table-cells', color: '#60A5FA', label: 'Device Layout', permission: PERMISSIONS.Public },
-  { id: 'logging-details', icon: 'chart-line', color: '#A78BFA', label: 'Log Details', permission: PERMISSIONS.AuthRequired },
-  { id: 'recipe', icon: 'list-check', color: '#FB923C', label: 'Recipe (WIP)', permission: PERMISSIONS.OperatorOnly },
-  { id: 'settings', icon: 'gear', color: '#9CA3AF', label: 'Settings', permission: PERMISSIONS.OperatorOnly },
-  { id: 'users', icon: 'users', color: '#A78BFA', label: 'Users', permission: PERMISSIONS.AdminOnly},
-]
-
-// Determine what buttons to show in the ribbon based on the users access level.
-const screensButtons = computed(() =>
-  allScreensButtons.filter(b => canAccess(props.currentUser, b.permission))
-)
 </script>
 
 <template>

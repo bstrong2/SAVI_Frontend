@@ -8,19 +8,20 @@
     loading: { type: Boolean, default: false },
   })
 
-  /////////////////////////////////////////////
-  // Defining the emits.
-  const emit = defineEmits(['close', 'login'])
-
-  /////////////////////////////////////////////
-  // Define variables.
   const username = ref('')
   const password = ref('')
   const capsLockOn = ref(false)
   const usernameElement = ref(null)
 
+  // define emits
+  const emit = defineEmits(['close', 'login'])
+
+
+  /////////////////////////////////////////////
+  // Mounts
   onMounted(() => usernameElement.value?.focus())
 
+  
   /////////////////////////////////////////////
   // Defining all functions now.
   // Check for the caps lock key to display to the user that anything that they type will probably be wrong.

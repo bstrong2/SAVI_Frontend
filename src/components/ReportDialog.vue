@@ -1,13 +1,6 @@
 <script setup>
   import { ref, onMounted, inject } from 'vue'
 
-  // Inject needed data for this dialog.
-  const BACKEND_URL = inject('BACKEND_URL')
-  const addLog = inject('addLog', (msg, level) => console.error(msg))
-
-  /////////////////////////////////////////////
-  // Defining the emits.
-  const emit = defineEmits(['close'])
 
   /////////////////////////////////////////////
   // Define variables.
@@ -16,6 +9,16 @@
   const separateSensorFiles = ref(false)
   const selectedRun = ref(null)
 
+  // injecting things that we need for this dialog.
+  const BACKEND_URL = inject('BACKEND_URL')
+  const addLog = inject('addLog', (msg, level) => console.error(msg))
+
+  // define emits
+  const emit = defineEmits(['close'])
+
+  
+  /////////////////////////////////////////////
+  // Mounts
   onMounted(async () => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/runs`)
@@ -30,6 +33,7 @@
       loading.value = false 
     }
   })
+
 
   /////////////////////////////////////////////
   // Defining all functions now.
@@ -60,8 +64,8 @@
     const url = URL.createObjectURL(blob)
     const downloadLink = document.createElement('a')
     downloadLink.href = url; downloadLink.download = filename
-    document.body.appendChild(a); downloadLink.click()
-    document.body.removeChild(a); URL.revokeObjectURL(url)
+    document.body.appendChild(downloadLink); downloadLink.click()
+    document.body.removeChild(downloadLink); URL.revokeObjectURL(url)
   }
 
   // self explainitory, this is how we are generating the report.
