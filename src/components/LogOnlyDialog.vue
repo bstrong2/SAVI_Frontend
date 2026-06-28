@@ -1,5 +1,6 @@
 <script setup>
 import { ref, computed, inject } from 'vue'
+import { DRIVERS } from '../constants/devices.js'
 
 const emit = defineEmits(['confirm', 'cancel'])
 
@@ -73,8 +74,8 @@ function onKeydown(e) {
 
 function driverLabel(driver) {
   if (!driver) return '—'
-  if (driver === 'relay')              return 'Relay'
-  if (driver === 'collision-detector') return 'Collision'
+  if (driver === DRIVERS.Relay)             return 'Relay'
+  if (driver === DRIVERS.CollisionDetector) return 'Collision'
   return driver
 }
 </script>

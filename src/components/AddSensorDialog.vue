@@ -1,34 +1,39 @@
 <script setup>
 import { ref, computed, watch, inject, onMounted } from 'vue'
+import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS, SIMULATED_TYPES } from '../constants/devices.js'
 
 const emit = defineEmits(['add', 'close'])
 
-const BACKEND_URL = inject('BACKEND_URL', 'http://localhost:5176')
-const devices     = inject('devices', ref([]))
+const BACKEND_URL = inject('BACKEND_URL')
+const devices = inject('devices')
 
-const displayName        = ref('')
-const selectedConnection = ref('Simulated')
-const selectedDriver     = ref('')
-const pinNumber          = ref(18)
+const displayName = ref('')
+const selectedConnection = ref(DRIVERS.Simulated)
+const selectedDriver = ref('')
+const pinNumber = ref(18)
 
 const showPinField = computed(() =>
-  selectedConnection.value !== 'Simulated' &&
-  (selectedDriver.value === 'relay' || selectedDriver.value === 'collision-detector')
+  selectedConnection.value !== DRIVERS.Simulated &&
+  (selectedDriver.value === DRIVERS.Relay || selectedDriver.value === DRIVERS.CollisionDetector)
 )
 
 // Build connection list from devices + Simulated
 const connections = computed(() => {
-  const list = [{ label: 'Simulated', value: 'Simulated' }]
+  const list = [{ label: 'Simulated', value: DRIVERS.Simulated }]
   for (const d of devices.value) {
-    const deviceName = d.properties.find(p => p.name === 'Device Name')?.value?.trim()
-    if (d.type === 'com') {
-      const port = d.properties.find(p => p.name === 'ComPort')?.value?.trim()
+
+    const deviceName = d.properties.find(p => p.name === DEVICE_PROPS.DeviceName)?.value?.trim()
+    
+    if (d.type === DEVICE_TYPES.Com) {
+      const port = d.properties.find(p => p.name === DEVICE_PROPS.ComPort)?.value?.trim()
       if (port) {
         const label = deviceName ? `${deviceName} (${port})` : port
         list.push({ label, value: port })
       }
-    } else if (d.type === 'ip') {
-      const ip = d.properties.find(p => p.name === 'IpAddress')?.value?.trim()
+    } else if (d.type === DEVICE_TYPES.Ip) {
+
+      const ip = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
+      
       if (ip) {
         const label = deviceName ? `${deviceName} (${ip})` : ip
         list.push({ label, value: ip })
@@ -38,46 +43,60 @@ const connections = computed(() => {
   return list
 })
 
-// Always-available types for Simulated connection
-const SIMULATED_TYPES = [
-  { id: 'relay',              name: 'Relay' },
-  { id: 'collision-detector', name: 'Collision Detector' },
-]
-
 // Sensor types fetched from the backend (used when a real device is selected)
 const sensorTypes = ref([])
 
-// Show simulated types when Simulated is selected; backend types otherwise
+// Show simulated types when Simulated is selected, backend types otherwise
 const availableTypes = computed(() =>
-  selectedConnection.value === 'Simulated' ? SIMULATED_TYPES : sensorTypes.value
+  selectedConnection.value === DRIVERS.Simulated ? SIMULATED_TYPES : sensorTypes.value
 )
 
-// Reset driver selection when connection or available list changes
-watch(availableTypes, (types) => {
-  if (!types.find(t => t.id === selectedDriver.value)) {
-    selectedDriver.value = types[0]?.id ?? ''
+// If you switch connection types different sensor types might be different. Check to make sure that the new list
+// has the same driver available for selection. If not then put set it to the first selection in the list.
+watch(availableTypes, (newAvailableTypes) => {
+  console.log('availableTypes changed:', newAvailableTypes)
+  console.log('current selectedDriver:', selectedDriver.value)
+
+  if (!newAvailableTypes.length)
+    return
+
+  if (!newAvailableTypes.includes(selectedDriver.value)) {
+    selectedDriver.value = newAvailableTypes[0]
+    console.log('reset selectedDriver to:', selectedDriver.value)
   }
-}, { immediate: true })
+},
+// Make sure to run this on mount.
+{ immediate: true })
 
 onMounted(async () => {
   try {
     const res = await fetch(`${BACKEND_URL}/api/sensors`)
     if (res.ok) {
-      sensorTypes.value = await res.json()
+      const data = await res.json()
+      sensorTypes.value = data.map(t => t.id)
     }
-  } catch { /* backend unreachable — real device dropdown stays empty */ }
+  } catch (e){
+      // At this point we either timed out or the backend isn't running
+      console.error('Failed to fetch sensor types... Is the backend running??\n', e)
+    }
 })
 
 function submit() {
   const name = displayName.value.trim()
-  if (!name) return
+
+  if (!name) 
+    return
+  
   const pin = showPinField.value ? pinNumber.value : null
   emit('add', { name, connection: selectedConnection.value, driver: selectedDriver.value, pin })
 }
 
 function onKeydown(e) {
-  if (e.key === 'Enter') submit()
-  if (e.key === 'Escape') emit('close')
+  if (e.key === 'Enter') 
+    submit()
+  
+  if (e.key === 'Escape') 
+    emit('close')
 }
 </script>
 
@@ -105,7 +124,7 @@ function onKeydown(e) {
       <div class="modal-row">
         <label class="modal-label">Devices:</label>
         <select class="modal-input" v-model="selectedDriver">
-          <option v-for="s in availableTypes" :key="s.id" :value="s.id">{{ s.name }}</option>
+          <option v-for="s in availableTypes" :key="s" :value="s">{{ s.replaceAll('-', ' ').replace(/\b\w/g, c => c.toUpperCase()) }}</option>
         </select>
       </div>
 

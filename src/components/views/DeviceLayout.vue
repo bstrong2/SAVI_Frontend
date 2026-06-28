@@ -1,9 +1,10 @@
 <script setup>
 import { ref, computed, inject, onMounted, onUnmounted } from 'vue'
-import AddSensorModal from '../AddSensorModal.vue'
+import AddSensorDialog from '../AddSensorDialog.vue'
 import { PERMISSIONS, canAccess } from '../../auth/roles.js'
+import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS } from '../../constants/devices.js'
 
-const BACKEND_URL = inject('BACKEND_URL', 'http://localhost:5176')
+const BACKEND_URL = inject('BACKEND_URL')
 const authToken = inject('authToken')
 const currentUser = inject('currentUser')
 const addLog = inject('addLog', () => {})
@@ -23,7 +24,7 @@ function isRecipeRelay(item) {
 
 const isEditMode = ref(false)
 const showAddMenu = ref(false)
-const showAddSensorModal = ref(false)
+const showAddSensorDialog = ref(false)
 const showColorPicker = ref(false)
 const showTextColorPicker = ref(false)
 const selectedId = ref(null)
@@ -78,10 +79,10 @@ async function loadLayout() {
         if (item.type !== 'sensor') 
           return
         
-        if (item.driver === 'relay' && item.relayState == null)
+        if (item.driver === DRIVERS.Relay && item.relayState == null)
           item.relayState = 'off'
 
-        if (item.driver === 'collision-detector' && (item.value == null || item.value === '--' || item.value === 'CLEAR'))
+        if (item.driver === DRIVERS.CollisionDetector && (item.value == null || item.value === '--' || item.value === 'CLEAR'))
           item.value = 'No Contact'
       })
       items.value = data
@@ -90,7 +91,7 @@ async function loadLayout() {
       // Register all sensors with the backend so the canvas→DB ID mapping is
       // cached in SensorSimulationService (needed for readings batch writes).
       for (const item of items.value.filter(i => i.type === 'sensor')) {
-        if (item.connection === 'Simulated') 
+        if (item.connection === DRIVERS.Simulated)
           await registerSimulatedSensor(item)
         else
           await registerRealSensor(item)
@@ -112,10 +113,10 @@ async function registerSimulatedSensor(item) {
     })
     if (!res.ok) return
     const data = await res.json()
-    if (item.driver === 'relay')
+    if (item.driver === DRIVERS.Relay)
       item.relayState = data.state       // 'on' | 'off'
 
-    if (item.driver === 'collision-detector') 
+    if (item.driver === DRIVERS.CollisionDetector)
       item.value = data.stateLabel  // 'TRIGGERED' | 'CLEAR'
   } catch { /* backend unreachable — local state stands */ }
 }
@@ -135,7 +136,7 @@ async function registerRealSensor(item) {
   }
 
   // For collision detectors, also tell the Pi to start monitoring the GPIO pin.
-  if (item.driver === 'collision-detector' && item.pin != null) {
+  if (item.driver === DRIVERS.CollisionDetector && item.pin != null) {
     const deviceId = resolveDeviceId(item.connection)
     if (deviceId !== null) {
       try {
@@ -232,24 +233,24 @@ function doneEdit() {
 
 function addSensor() {
   showAddMenu.value = false
-  showAddSensorModal.value = true
+  showAddSensorDialog.value = true
 }
 
 async function confirmAddSensor({ name, connection, driver, pin }) {
   const id = nextId++
   const extra =
-    driver === 'relay'              ? { relayState: 'off' }             :
-    driver === 'collision-detector' ? { value: 'No Contact', unit: '' } :
+    driver === DRIVERS.Relay             ? { relayState: 'off' }             :
+    driver === DRIVERS.CollisionDetector ? { value: 'No Contact', unit: '' } :
                                       { value: '--',         unit: '' }
   const newItem = { id, type: 'sensor', name, connection, driver, pin: pin ?? null, x: 80, y: 80, color: '#1e90ff', textColor: null, ...extra }
   items.value.push(newItem)
-  showAddSensorModal.value = false
+  showAddSensorDialog.value = false
   isEditMode.value = true
   saveLayout()
 
   // Register the new sensor immediately so the backend DB mapping is ready
-  if (connection === 'Simulated') await registerSimulatedSensor(newItem)
-  else                            await registerRealSensor(newItem)
+  if (connection === DRIVERS.Simulated) await registerSimulatedSensor(newItem)
+  else                                  await registerRealSensor(newItem)
 }
 
 function addRectangle() {
@@ -405,10 +406,10 @@ async function reconnectAllDevices() {
   reconnecting.value = true
   addLog('Reconnect All: restarting Pi agent(s)…', 'Info')
 
-  const ipDevices = (devices.value ?? []).filter(d => d.type === 'ip')
+  const ipDevices = (devices.value ?? []).filter(d => d.type === DEVICE_TYPES.Ip)
   for (const d of ipDevices) {
-    const ip   = d.properties.find(p => p.name === 'IpAddress')?.value?.trim()
-    const port = d.properties.find(p => p.name === 'PortNumber')?.value
+    const ip   = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
+    const port = d.properties.find(p => p.name === DEVICE_PROPS.PortNumber)?.value
     if (!ip || !port) continue
     try {
       await fetch(`http://${ip}:${port}/restart`, { method: 'POST' })
@@ -433,10 +434,10 @@ async function reconnectAllDevices() {
 
 // Relay control — resolve connection string to a numeric device id
 function resolveDeviceId(connection) {
-  if (!connection || connection === 'Simulated') return null
+  if (!connection || connection === DRIVERS.Simulated) return null
   for (const d of devices.value) {
-    if (d.type === 'ip') {
-      const ip = d.properties.find(p => p.name === 'IpAddress')?.value?.trim()
+    if (d.type === DEVICE_TYPES.Ip) {
+      const ip = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
       if (ip === connection) return d.id
     }
   }
@@ -448,7 +449,7 @@ async function handleRelayChange(item, state) {
   addLog(`"${item.name}" turned ${state.toUpperCase()} by ${who}`, 'Info')
   item.relayState = state  // optimistic local update
 
-  if (item.connection === 'Simulated') {
+  if (item.connection === DRIVERS.Simulated) {
     // Route to backend simulation service
     try {
       await fetch(`${BACKEND_URL}/api/simulate/relay/${item.id}/${state}`, {
@@ -651,7 +652,7 @@ function onCanvasClick(e) {
             <div class="sensor-tile-name" :style="{ color: item.textColor || null }">{{ item.name }}</div>
 
             <!-- Relay: ON / OFF radio buttons -->
-            <template v-if="item.driver === 'relay'">
+            <template v-if="item.driver === DRIVERS.Relay">
               <div class="relay-controls" @mousedown.stop @click.stop>
                 <label
                   class="relay-label"
@@ -682,11 +683,11 @@ function onCanvasClick(e) {
                   /> OFF
                 </label>
               </div>
-              <div v-if="item.connection === 'Simulated'" class="sim-badge">SIM</div>
+              <div v-if="item.connection === DRIVERS.Simulated" class="sim-badge">SIM</div>
             </template>
 
             <!-- Collision Detector -->
-            <template v-else-if="item.driver === 'collision-detector'">
+            <template v-else-if="item.driver === DRIVERS.CollisionDetector">
               <div
                 class="collision-state"
                 :style="{
@@ -699,13 +700,13 @@ function onCanvasClick(e) {
               </div>
               <!-- Simulate trigger/release — only for Simulated connection + operators -->
               <button
-                v-if="item.connection === 'Simulated' && canOperate"
+                v-if="item.connection === DRIVERS.Simulated && canOperate"
                 class="sim-trigger-btn"
                 :class="{ 'sim-trigger-btn--active': item.value === 'Collision!' }"
                 @mousedown.stop
                 @click.stop="toggleCollisionSim(item)"
               >{{ item.value === 'Collision!' ? 'Release' : 'Trigger' }}</button>
-              <div v-if="item.connection === 'Simulated'" class="sim-badge">SIM</div>
+              <div v-if="item.connection === DRIVERS.Simulated" class="sim-badge">SIM</div>
             </template>
 
             <!-- Default sensors: live value + unit -->
@@ -750,10 +751,10 @@ function onCanvasClick(e) {
       </div>
     </div>
 
-    <AddSensorModal
-      v-if="showAddSensorModal"
+    <AddSensorDialog
+      v-if="showAddSensorDialog"
       @add="confirmAddSensor"
-      @close="showAddSensorModal = false"
+      @close="showAddSensorDialog = false"
     />
 
     <button v-if="canOperate" class="reconnect-all-btn" :disabled="reconnecting" @click.stop="reconnectAllDevices">

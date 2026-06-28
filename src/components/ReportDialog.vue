@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, inject } from 'vue'
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
+const BACKEND_URL = inject('BACKEND_URL')
 const addLog      = inject('addLog', (msg, level) => console.error(msg))
 
 const emit = defineEmits(['close'])

@@ -1,7 +1,8 @@
 <script setup>
 import { ref, computed, watch, inject, onMounted, onUnmounted, nextTick } from 'vue'
+import { DEVICE_TYPES, DEVICE_PROPS } from '../../constants/devices.js'
 
-const BACKEND_URL      = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
+const BACKEND_URL      = inject('BACKEND_URL')
 const authToken         = inject('authToken')
 const addLog            = inject('addLog')
 const chartPlotInterval = inject('chartPlotInterval', ref(3))
@@ -117,16 +118,16 @@ function hideCtx() { ctx.value.visible = false }
 function addDevice(type) {
   const id = nextDevId++
   devices.value.push(
-    type === 'com'
-      ? { id, name: 'COM Device', type: 'com', expanded: true, properties: [
-            { name: 'Device Name', value: '',     description: 'Friendly name for this device',  propType: 'string', editing: false },
-            { name: 'ComPort',     value: '',     description: 'COM port (e.g., COM1)',           propType: 'string', editing: false },
-            { name: 'BaudRate',    value: '9600', description: 'Baud rate for communication',     propType: 'int',    editing: false },
+    type === DEVICE_TYPES.Com
+      ? { id, name: 'COM Device', type: DEVICE_TYPES.Com, expanded: true, properties: [
+            { name: DEVICE_PROPS.DeviceName, value: '',     description: 'Friendly name for this device',  propType: 'string', editing: false },
+            { name: DEVICE_PROPS.ComPort,    value: '',     description: 'COM port (e.g., COM1)',           propType: 'string', editing: false },
+            { name: DEVICE_PROPS.BaudRate,   value: '9600', description: 'Baud rate for communication',     propType: 'int',    editing: false },
           ] }
-      : { id, name: 'IP Device', type: 'ip', expanded: true, properties: [
-            { name: 'Device Name', value: '',    description: 'Friendly name for this device',   propType: 'string', editing: false },
-            { name: 'IpAddress',   value: '',    description: 'IP address of the device',        propType: 'string', editing: false },
-            { name: 'PortNumber',  value: '502', description: 'Port number for connection',      propType: 'int',    editing: false },
+      : { id, name: 'IP Device', type: DEVICE_TYPES.Ip, expanded: true, properties: [
+            { name: DEVICE_PROPS.DeviceName, value: '',    description: 'Friendly name for this device',   propType: 'string', editing: false },
+            { name: DEVICE_PROPS.IpAddress,  value: '',    description: 'IP address of the device',        propType: 'string', editing: false },
+            { name: DEVICE_PROPS.PortNumber, value: '502', description: 'Port number for connection',      propType: 'int',    editing: false },
           ] }
   )
   hideCtx()
@@ -278,7 +279,7 @@ async function loadSettings() {
                 <td colspan="3">
                   <span class="depth-indent" style="width:20px" />
                   <span class="dc-toggle">{{ device.expanded ? '▾' : '▸' }}</span>
-                  <span>{{ device.type === 'com' ? '🔌' : '🌐' }}</span>
+                  <span>{{ device.type === DEVICE_TYPES.Com ? '🔌' : '🌐' }}</span>
                   {{ device.name }}
                 </td>
               </tr>
@@ -349,8 +350,8 @@ async function loadSettings() {
       @click.stop
     >
       <template v-if="ctx.mode === 'category'">
-        <button class="ctx-item" @click="addDevice('com')"><span>🔌</span> Add COM Device</button>
-        <button class="ctx-item" @click="addDevice('ip')"><span>🌐</span> Add IP Device</button>
+        <button class="ctx-item" @click="addDevice(DEVICE_TYPES.Com)"><span>🔌</span> Add COM Device</button>
+        <button class="ctx-item" @click="addDevice(DEVICE_TYPES.Ip)"><span>🌐</span> Add IP Device</button>
       </template>
       <template v-else-if="ctx.mode === 'device'">
         <button class="ctx-item ctx-item-danger" @click="deleteDevice(ctx.target)"><span>🗑</span> Delete</button>

@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { PERMISSIONS, canAccess } from '../auth/roles.js'
-import { RUN_COMMANDS, OTHER_COMMANDS } from '../commands.js'
+import { RUN_COMMANDS, OTHER_COMMANDS } from '../constants/commands.js'
 
 const props = defineProps({
   activeView: String,

@@ -1,21 +1,22 @@
 <script setup>
-import { ref, provide, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, inject, provide, computed, watch, onMounted, onUnmounted } from 'vue'
 import * as signalR from '@microsoft/signalr'
 import AppRibbon from './components/AppRibbon.vue'
 import LogView from './components/LogView.vue'
-import LoginModal from './components/LoginModal.vue'
-import ReportModal from './components/ReportModal.vue'
-import StartRunModal  from './components/StartRunModal.vue'
-import LogOnlyModal   from './components/LogOnlyModal.vue'
+import LoginDialog    from './components/LoginDialog.vue'
+import ReportDialog   from './components/ReportDialog.vue'
+import StartRunDialog from './components/StartRunDialog.vue'
+import LogOnlyDialog  from './components/LogOnlyDialog.vue'
 import DeviceLayout from './components/views/DeviceLayout.vue'
 import LoggingDetails from './components/views/LoggingDetails.vue'
 import Recipe from './components/views/Recipe.vue'
 import Settings from './components/views/Settings.vue'
 import Users from './components/views/Users.vue'
 import { PERMISSIONS, canAccess } from './auth/roles.js'
-import { RUN_COMMANDS, OTHER_COMMANDS } from './commands.js'
+import { RUN_COMMANDS, OTHER_COMMANDS } from './constants/commands.js'
+import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS } from './constants/devices.js'
 
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5176'
+const BACKEND_URL = inject('BACKEND_URL')
 
 const connection       = ref(null)
 const connectionStatus = ref('Disconnected')
@@ -35,10 +36,10 @@ const isDark              = ref(false)
 const logHeight           = ref(160)
 const chartPlotInterval   = ref(3)   // seconds between chart data points
 
-const showLogin      = ref(false)
-const showReport     = ref(false)
-const showStartRun   = ref(false)
-const showLogOnly    = ref(false)
+const showLoginDialog      = ref(false)
+const showReportDialog     = ref(false)
+const showStartRunDialog   = ref(false)
+const showLogOnlyDialog    = ref(false)
 const loginError     = ref('')
 const loginLoading   = ref(false)
 
@@ -160,19 +161,19 @@ const layoutItems = ref([])
 // Shared device connections — Settings (edit) and AddSensorModal (picker) both inject this
 const devices = ref([
   {
-    id: 1, name: 'COM Device', type: 'com', expanded: false,
+    id: 1, name: 'COM Device', type: DEVICE_TYPES.Com, expanded: false,
     properties: [
-      { name: 'Device Name', value: '',     description: 'Friendly name for this device',    propType: 'string', editing: false },
-      { name: 'ComPort',     value: 'COM1', description: 'COM port (e.g., COM1)',             propType: 'string', editing: false },
-      { name: 'BaudRate',    value: '9600', description: 'Baud rate for communication',       propType: 'int',    editing: false },
+      { name: DEVICE_PROPS.DeviceName, value: '',     description: 'Friendly name for this device',    propType: 'string', editing: false },
+      { name: DEVICE_PROPS.ComPort,    value: 'COM1', description: 'COM port (e.g., COM1)',             propType: 'string', editing: false },
+      { name: DEVICE_PROPS.BaudRate,   value: '9600', description: 'Baud rate for communication',       propType: 'int',    editing: false },
     ],
   },
   {
-    id: 2, name: 'IP Device', type: 'ip', expanded: false,
+    id: 2, name: 'IP Device', type: DEVICE_TYPES.Ip, expanded: false,
     properties: [
-      { name: 'Device Name', value: '',              description: 'Friendly name for this device', propType: 'string', editing: false },
-      { name: 'IpAddress',   value: '192.168.1.100', description: 'IP address of the device',      propType: 'string', editing: false },
-      { name: 'PortNumber',  value: '502',            description: 'Port number for connection',    propType: 'int',    editing: false },
+      { name: DEVICE_PROPS.DeviceName, value: '',              description: 'Friendly name for this device', propType: 'string', editing: false },
+      { name: DEVICE_PROPS.IpAddress,  value: '192.168.1.100', description: 'IP address of the device',      propType: 'string', editing: false },
+      { name: DEVICE_PROPS.PortNumber, value: '502',            description: 'Port number for connection',    propType: 'int',    editing: false },
     ],
   },
 ])
@@ -212,7 +213,6 @@ provide('devices',       devices)
 provide('layoutItems',   layoutItems)
 provide('authToken',     authToken)
 provide('currentUser',   currentUser)
-provide('BACKEND_URL',    BACKEND_URL)
 provide('runInfo',        runInfo)
 provide('runState',       runState)
 provide('chartData',        chartData)      // persistent across view navigation
@@ -310,7 +310,7 @@ async function handleLogin({ username, password }) {
     const data = await res.json()
     authToken.value   = data.token
     currentUser.value = { username: data.username, role: data.role }
-    showLogin.value   = false
+    showLoginDialog.value   = false
     loginError.value  = ''
     addLog(`Logged in as ${data.username} (${data.role})`, 'Info')
   } catch {
@@ -358,9 +358,9 @@ onMounted(async () => {
     if (isNaN(tileId)) return
     const tile = layoutItems.value.find(i => i.id === tileId && i.type === 'sensor')
     if (!tile) return
-    if (tile.driver === 'collision-detector') {
+    if (tile.driver === DRIVERS.CollisionDetector) {
       tile.value = value >= 0.5 ? 'Collision!' : 'No Contact'
-    } else if (tile.driver === 'relay') {
+    } else if (tile.driver === DRIVERS.Relay) {
       tile.relayState = value >= 0.5 ? 'on' : 'off'
     }
   })
@@ -369,8 +369,8 @@ onMounted(async () => {
   // live monitoring resumes automatically without user intervention.
   conn.onreconnected(() => {
     for (const item of layoutItems.value) {
-      if (item.type !== 'sensor' || item.driver !== 'collision-detector') continue
-      if (item.connection === 'Simulated' || item.pin == null) continue
+      if (item.type !== 'sensor' || item.driver !== DRIVERS.CollisionDetector) continue
+      if (item.connection === DRIVERS.Simulated || item.pin == null) continue
       const deviceId = resolveDeviceId(item.connection)
       if (deviceId === null) continue
       fetch(`${BACKEND_URL}/api/devices/${deviceId}/di/monitor`, {
@@ -390,14 +390,14 @@ onMounted(async () => {
     for (const r of state.relays ?? []) {
       const item = layoutItems.value.find(
         i => i.type === 'sensor' && i.id === r.id &&
-             i.driver === 'relay' && i.connection === 'Simulated'
+             i.driver === DRIVERS.Relay && i.connection === DRIVERS.Simulated
       )
       if (item) item.relayState = r.state           // 'on' | 'off'
     }
     for (const d of state.digitalInputs ?? []) {
       const item = layoutItems.value.find(
         i => i.type === 'sensor' && i.id === d.id &&
-             i.driver === 'collision-detector' && i.connection === 'Simulated'
+             i.driver === DRIVERS.CollisionDetector && i.connection === DRIVERS.Simulated
       )
       if (item) item.value = d.stateLabel           // 'Collision!' | 'No Contact'
     }
@@ -418,11 +418,11 @@ onMounted(async () => {
     for (const d of state.digitalInputs ?? []) valueMap.set(d.id, d.stateLabel === 'Collision!' ? 1 : 0)
     // Real Pi relay/DI sensors aren't in SimulatedSensorState — read their current tile state directly
     for (const s of loggedSensors.value) {
-      if (s.connection === 'Simulated') continue
+      if (s.connection === DRIVERS.Simulated) continue
       const tile = layoutItems.value.find(i => i.id === s.id)
       if (!tile) continue
-      if (s.driver === 'relay')              valueMap.set(s.id, tile.relayState === 'on' ? 1 : 0)
-      if (s.driver === 'collision-detector') valueMap.set(s.id, tile.value === 'Collision!' ? 1 : 0)
+      if (s.driver === DRIVERS.Relay)             valueMap.set(s.id, tile.relayState === 'on' ? 1 : 0)
+      if (s.driver === DRIVERS.CollisionDetector) valueMap.set(s.id, tile.value === 'Collision!' ? 1 : 0)
     }
 
     let anyUpdate  = false
@@ -503,8 +503,8 @@ function pushChartPoint(sensorId, value) {
 
 function resolveDeviceId(ip) {
   for (const d of devices.value) {
-    if (d.type === 'ip') {
-      const dip = d.properties.find(p => p.name === 'IpAddress')?.value?.trim()
+    if (d.type === DEVICE_TYPES.Ip) {
+      const dip = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
       if (dip === ip) return d.id
     }
   }
@@ -514,7 +514,7 @@ function resolveDeviceId(ip) {
 async function callRelay(sensor, state) {
   if (!sensor) return
   try {
-    if (sensor.connection === 'Simulated') {
+    if (sensor.connection === DRIVERS.Simulated) {
       await fetch(`${BACKEND_URL}/api/simulate/relay/${sensor.id}/${state ? 'on' : 'off'}`, {
         method:  'POST',
         headers: authToken.value ? { Authorization: `Bearer ${authToken.value}` } : {},
@@ -559,12 +559,12 @@ async function executeRecipe(recipe, doSensor, diSensor) {
 
 async function handleRunCommand(cmd) {
   if (cmd === RUN_COMMANDS.Start) {
-    showStartRun.value = true
+    showStartRunDialog.value = true
     return
   }
 
   if (cmd === RUN_COMMANDS.LogOnly) {
-    showLogOnly.value = true
+    showLogOnlyDialog.value = true
     return
   }
 
@@ -592,7 +592,7 @@ async function handleStartConfirmed(info) {
   // but if it was never visited this session (or the backend restarted), the in-memory
   // mapping is missing and batch reads are silently dropped.
   for (const s of recipeSensors) {
-    const endpoint = s.connection === 'Simulated'
+    const endpoint = s.connection === DRIVERS.Simulated
       ? `${BACKEND_URL}/api/simulate/register`
       : `${BACKEND_URL}/api/sensors/register-canvas`
     await fetch(endpoint, {
@@ -613,7 +613,7 @@ async function handleStartConfirmed(info) {
     selectedSensors: recipeSensors,
     doSensorId:      info.doSensor?.id ?? null,
   }
-  showStartRun.value = false
+  showStartRunDialog.value = false
 
   const sensorNames = recipeSensors.map(s => s.name).join(', ') || 'none'
   addLog(`Run started by ${info.startedBy} — Recipe: ${info.recipeName} — Sensors: ${sensorNames}`, 'Info')
@@ -657,7 +657,7 @@ async function handleLogOnlyConfirmed(info) {
     selectedSensors: info.selectedSensors,   // [{ id, name, driver, connection, unit }]
     dbRunId:         null,
   }
-  showLogOnly.value = false
+  showLogOnlyDialog.value = false
   addLog(
     `Log-only started by ${info.startedBy} — ${info.selectedSensors.length} sensor(s): ` +
     info.selectedSensors.map(s => s.name).join(', '),
@@ -686,9 +686,9 @@ async function handleLogOnlyConfirmed(info) {
 }
 
 function handleOtherCommand(cmd) {
-  if (cmd === OTHER_COMMANDS.Login)          showLogin.value = true
+  if (cmd === OTHER_COMMANDS.Login)          showLoginDialog.value = true
   if (cmd === OTHER_COMMANDS.Logout)         handleLogout()
-  if (cmd === OTHER_COMMANDS.GenerateReport) showReport.value = true
+  if (cmd === OTHER_COMMANDS.GenerateReport) showReportDialog.value = true
 }
 
 function handleNavigate(view) {
@@ -747,26 +747,26 @@ function onSplitterMouseDown(e) {
       <LogView :entries="logEntries" :auto-scroll="generalSettings.autoScroll" />
     </div>
 
-    <LoginModal
-      v-if="showLogin"
+    <LoginDialog
+      v-if="showLoginDialog"
       :error="loginError"
       :loading="loginLoading"
-      @close="showLogin = false"
+      @close="showLoginDialog = false"
       @login="handleLogin"
     />
-    <ReportModal
-      v-if="showReport"
-      @close="showReport = false"
+    <ReportDialog
+      v-if="showReportDialog"
+      @close="showReportDialog = false"
     />
-    <StartRunModal
-      v-if="showStartRun"
+    <StartRunDialog
+      v-if="showStartRunDialog"
       @confirm="handleStartConfirmed"
-      @cancel="showStartRun = false"
+      @cancel="showStartRunDialog = false"
     />
-    <LogOnlyModal
-      v-if="showLogOnly"
+    <LogOnlyDialog
+      v-if="showLogOnlyDialog"
       @confirm="handleLogOnlyConfirmed"
-      @cancel="showLogOnly = false"
+      @cancel="showLogOnlyDialog = false"
     />
   </div>
 </template>

@@ -40,6 +40,11 @@ library.add(
   faMoon,
 )
 
-createApp(App)
-  .component('font-awesome-icon', FontAwesomeIcon)
-  .mount('#app')
+fetch('/config/settings.json')
+  .then(res => res.json())
+  .then(config => {
+    createApp(App)
+      .provide('BACKEND_URL', config.backendUrl)
+      .component('font-awesome-icon', FontAwesomeIcon)
+      .mount('#app')
+  })

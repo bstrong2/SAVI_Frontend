@@ -1,9 +1,10 @@
 <script setup>
 import { ref, computed, inject, watch, onMounted } from 'vue'
+import { DRIVERS } from '../constants/devices.js'
 
 const emit = defineEmits(['confirm', 'cancel'])
 
-const BACKEND_URL = inject('BACKEND_URL', 'http://localhost:5176')
+const BACKEND_URL = inject('BACKEND_URL')
 const currentUser = inject('currentUser')
 const layoutItems = inject('layoutItems', ref([]))
 
@@ -46,10 +47,10 @@ const selectedRecipeDescription = computed(() =>
 
 // DO = relay tiles, DI = collision-detector tiles from the canvas
 const doSensors = computed(() =>
-  layoutItems.value.filter(i => i.type === 'sensor' && i.driver === 'relay')
+  layoutItems.value.filter(i => i.type === 'sensor' && i.driver === DRIVERS.Relay)
 )
 const diSensors = computed(() =>
-  layoutItems.value.filter(i => i.type === 'sensor' && i.driver === 'collision-detector')
+  layoutItems.value.filter(i => i.type === 'sensor' && i.driver === DRIVERS.CollisionDetector)
 )
 
 const selectedDoId = ref(null)
@@ -168,7 +169,7 @@ function onKeydown(e) {
               :disabled="doSensors.length === 0"
             >
               <option v-for="s in doSensors" :key="s.id" :value="s.id">
-                {{ s.name }} ({{ s.connection === 'Simulated' ? 'SIM' : s.connection }})
+                {{ s.name }} ({{ s.connection === DRIVERS.Simulated ? 'SIM' : s.connection }})
               </option>
             </select>
           </template>
@@ -185,7 +186,7 @@ function onKeydown(e) {
               :disabled="diSensors.length === 0"
             >
               <option v-for="s in diSensors" :key="s.id" :value="s.id">
-                {{ s.name }} ({{ s.connection === 'Simulated' ? 'SIM' : s.connection }})
+                {{ s.name }} ({{ s.connection === DRIVERS.Simulated ? 'SIM' : s.connection }})
               </option>
             </select>
           </template>
