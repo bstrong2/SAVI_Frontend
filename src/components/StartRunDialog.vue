@@ -7,6 +7,7 @@ const emit = defineEmits(['confirm', 'cancel'])
 const BACKEND_URL = inject('BACKEND_URL')
 const currentUser = inject('currentUser')
 const layoutItems = inject('layoutItems', ref([]))
+const addLog = inject('addLog', (msg, level) => console.error(msg))
 
 const notes = ref('')
 const selectedRecipe = ref('')
@@ -26,8 +27,9 @@ onMounted(async () => {
     } else {
       fetchErr.value = true
     }
-  } catch {
+  } catch (e) {
     fetchErr.value = true
+    addLog(`Failed to fetch recipes: ${e.message}`, 'Error')
   } finally {
     loading.value = false
   }
@@ -109,22 +111,22 @@ function onKeydown(e) {
 </script>
 
 <template>
-  <div class="modal-overlay" @click.self="emit('cancel')" @keydown="onKeydown">
-    <div class="modal-box start-run-dialog">
+  <div class="dialog-overlay" @click.self="emit('cancel')" @keydown="onKeydown">
+    <div class="dialog-box start-run-dialog">
 
       <h3 class="start-run-title">Start Run</h3>
 
       <!-- Started By (read-only) -->
-      <div class="modal-row">
-        <label class="modal-label">Started By:</label>
-        <input class="modal-input" :value="startedBy" readonly />
+      <div class="dialog-row">
+        <label class="dialog-label">Started By:</label>
+        <input class="dialog-input" :value="startedBy" readonly />
       </div>
 
       <!-- Run Notes -->
-      <div class="modal-row start-run-notes-row">
-        <label class="modal-label">Run Notes:</label>
+      <div class="dialog-row start-run-notes-row">
+        <label class="dialog-label">Run Notes:</label>
         <textarea
-          class="modal-input start-run-textarea"
+          class="dialog-input start-run-textarea"
           v-model="notes"
           rows="3"
           placeholder="Optional notes for this run…"
@@ -140,7 +142,7 @@ function onKeydown(e) {
         <div v-else>
           <!-- Listbox — all recipes shown at once -->
           <select
-            class="modal-input recipe-listbox"
+            class="dialog-input recipe-listbox"
             v-model="selectedRecipe"
             :size="recipes.length || 1"
           >
@@ -150,7 +152,7 @@ function onKeydown(e) {
           <!-- Description -->
           <div class="recipe-desc-label">Description:</div>
           <textarea
-            class="modal-input recipe-description"
+            class="dialog-input recipe-description"
             :value="selectedRecipeDescription"
             rows="7"
             readonly
@@ -164,7 +166,7 @@ function onKeydown(e) {
               <span v-if="doSensors.length === 0" class="sensor-warn">No relay tiles on canvas</span>
             </div>
             <select
-              class="modal-input"
+              class="dialog-input"
               v-model="selectedDoId"
               :disabled="doSensors.length === 0"
             >
@@ -181,7 +183,7 @@ function onKeydown(e) {
               <span v-if="diSensors.length === 0" class="sensor-warn">No DI tiles on canvas</span>
             </div>
             <select
-              class="modal-input"
+              class="dialog-input"
               v-model="selectedDiId"
               :disabled="diSensors.length === 0"
             >
@@ -194,7 +196,7 @@ function onKeydown(e) {
       </div>
 
       <!-- Footer -->
-      <div class="modal-footer">
+      <div class="dialog-footer">
         <button class="btn btn-primary" :disabled="!canSubmit" @click="submit">OK</button>
         <button class="btn btn-secondary" @click="emit('cancel')">Cancel</button>
       </div>
@@ -204,7 +206,7 @@ function onKeydown(e) {
 </template>
 
 <style scoped>
-.modal-overlay {
+.dialog-overlay {
   padding-bottom: 12vh;
 }
 

@@ -1,57 +1,55 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+  import { ref, onMounted } from 'vue'
 
-const props = defineProps({
-  error:   { type: String, default: '' },
-  loading: { type: Boolean, default: false },
-})
+  /////////////////////////////////////////////
+  // Define variables.
+  const props = defineProps({
+    error: { type: String, default: '' },
+    loading: { type: Boolean, default: false },
+  })
 
-const emit = defineEmits(['close', 'login'])
+  /////////////////////////////////////////////
+  // Defining the emits.
+  const emit = defineEmits(['close', 'login'])
 
-const username    = ref('')
-const password    = ref('')
-const capsLockOn  = ref(false)
-const usernameEl  = ref(null)
+  /////////////////////////////////////////////
+  // Define variables.
+  const username = ref('')
+  const password = ref('')
+  const capsLockOn = ref(false)
+  const usernameElement = ref(null)
 
-onMounted(() => usernameEl.value?.focus())
+  onMounted(() => usernameElement.value?.focus())
 
-function checkCaps(e) {
-  capsLockOn.value = e.getModifierState('CapsLock')
-}
+  /////////////////////////////////////////////
+  // Defining all functions now.
+  // Check for the caps lock key to display to the user that anything that they type will probably be wrong.
+  function checkCaps(e) {
+    capsLockOn.value = e.getModifierState('CapsLock')
+  }
 
-function submit() {
-  if (props.loading) return
-  emit('login', { username: username.value, password: password.value })
-}
+  function submit() {
+    if (props.loading) 
+      return
+    
+      emit('login', { username: username.value, password: password.value })
+  }
 </script>
 
 <template>
-  <div class="modal-overlay" @click.self="emit('close')">
-    <div class="modal-box">
-      <div class="modal-row">
-        <label class="modal-label">User Name:</label>
-        <input
-          ref="usernameEl"
-          type="text"
-          class="modal-input"
-          v-model="username"
-          @keydown.enter="submit"
-        />
+  <div class="dialog-overlay" @click.self="emit('close')">
+    <div class="dialog-box">
+      <div class="dialog-row">
+        <label class="dialog-label">User Name:</label>
+        <input ref="usernameElement" type="text" class="dialog-input" v-model="username" @keydown.enter="submit"/>
       </div>
-      <div class="modal-row">
-        <label class="modal-label">Password:</label>
-        <input
-          type="password"
-          class="modal-input"
-          v-model="password"
-          @keydown.enter="submit"
-          @keydown="checkCaps"
-          @keyup="checkCaps"
-        />
+      <div class="dialog-row">
+        <label class="dialog-label">Password:</label>
+        <input type="password" class="dialog-input" v-model="password" @keydown.enter="submit" @keydown="checkCaps" @keyup="checkCaps"/>
       </div>
       <div v-if="capsLockOn" class="caps-warning">⇪ Caps Lock is on</div>
       <div v-if="error" class="login-error">{{ error }}</div>
-      <div class="modal-footer">
+      <div class="dialog-footer">
         <button class="btn btn-primary" :disabled="loading" @click="submit">
           {{ loading ? 'Logging in…' : 'Log In' }}
         </button>
@@ -62,16 +60,16 @@ function submit() {
 </template>
 
 <style scoped>
-.caps-warning {
-  font-size: 12px;
-  color: #e65100;
-  padding: 2px 0 4px 0;
-  text-align: right;
-}
-.login-error {
-  font-size: 12px;
-  color: #f44336;
-  padding: 2px 0 6px 0;
-  text-align: center;
-}
+  .caps-warning {
+    font-size: 12px;
+    color: #e65100;
+    padding: 2px 0 4px 0;
+    text-align: right;
+  }
+  .login-error {
+    font-size: 12px;
+    color: #f44336;
+    padding: 2px 0 6px 0;
+    text-align: center;
+  }
 </style>

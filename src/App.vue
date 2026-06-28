@@ -2,7 +2,7 @@
 import { ref, inject, provide, computed, watch, onMounted, onUnmounted } from 'vue'
 import * as signalR from '@microsoft/signalr'
 import AppRibbon from './components/AppRibbon.vue'
-import LogView from './components/LogView.vue'
+import LogPanel from './components/LogPanel.vue'
 import LoginDialog    from './components/LoginDialog.vue'
 import ReportDialog   from './components/ReportDialog.vue'
 import StartRunDialog from './components/StartRunDialog.vue'
@@ -43,7 +43,7 @@ const showLogOnlyDialog    = ref(false)
 const loginError     = ref('')
 const loginLoading   = ref(false)
 
-// Run state — owned here so the Start modal can gate the transition
+// Run state — owned here so the Start dialog can gate the transition
 const runState = ref('idle')   // 'idle' | 'running' | 'paused'
 
 // Run info populated on Start confirm; provided to LoggingDetails
@@ -64,7 +64,7 @@ function chartHexToRgba(hex, alpha) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
-// Sensors chosen in the Log Only modal; empty array means recipe / idle mode
+// Sensors chosen in the Log Only dialog; empty array means recipe / idle mode
 const loggedSensors = computed(() => runInfo.value?.selectedSensors ?? [])
 
 // Persistent chart data — provided to LoggingDetails (read + write)
@@ -158,7 +158,7 @@ const currentUser = ref(null)  // { username, role }
 // Shared canvas items — DeviceLayout (edit) and LoggingDetails (sensor picker) both inject this
 const layoutItems = ref([])
 
-// Shared device connections — Settings (edit) and AddSensorModal (picker) both inject this
+// Shared device connections — Settings (edit) and AddSensorDialog (picker) both inject this
 const devices = ref([
   {
     id: 1, name: 'COM Device', type: DEVICE_TYPES.Com, expanded: false,
@@ -744,7 +744,7 @@ function onSplitterMouseDown(e) {
     <div class="h-splitter" @mousedown="onSplitterMouseDown" />
 
     <div class="log-area" :style="{ height: logHeight + 'px' }">
-      <LogView :entries="logEntries" :auto-scroll="generalSettings.autoScroll" />
+      <LogPanel :entries="logEntries" :auto-scroll="generalSettings.autoScroll" />
     </div>
 
     <LoginDialog

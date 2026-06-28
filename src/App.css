@@ -737,8 +737,8 @@ input[readonly]:focus, textarea[readonly]:focus {
 .users-table tr:hover td          { background: var(--bg-table-hover); }
 .users-table select { width: auto; }
 
-/* ── Login Modal ── */
-.modal-overlay {
+/* ── Dialog ── */
+.dialog-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
@@ -748,7 +748,7 @@ input[readonly]:focus, textarea[readonly]:focus {
   z-index: 1000;
 }
 
-.modal-box {
+.dialog-box {
   background: var(--bg-panel);
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -757,7 +757,7 @@ input[readonly]:focus, textarea[readonly]:focus {
   min-width: 280px;
 }
 
-.modal-row {
+.dialog-row {
   display: grid;
   grid-template-columns: 82px 1fr;
   align-items: center;
@@ -765,13 +765,13 @@ input[readonly]:focus, textarea[readonly]:focus {
   margin-bottom: 10px;
 }
 
-.modal-label {
+.dialog-label {
   font-size: 13px;
   color: var(--text-primary);
   white-space: nowrap;
 }
 
-.modal-input {
+.dialog-input {
   height: 26px;
   padding: 2px 6px;
   font-size: 13px;
@@ -782,13 +782,13 @@ input[readonly]:focus, textarea[readonly]:focus {
   color: var(--text-primary);
   width: 100%;
 }
-.modal-input:focus {
+.dialog-input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(0, 120, 215, 0.2);
 }
 
-.modal-footer {
+.dialog-footer {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
