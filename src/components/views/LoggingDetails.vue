@@ -296,4 +296,53 @@
     font-weight: 600;
     text-align: center;
   }
+
+  /*
+   * ==========================================
+   * Logging Details layout
+   * ==========================================
+   */
+
+  /* Outer flex row: chart on the left, run info panel on the right. */
+  .logging-details {
+    display: flex;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Flex column that fills all space to the left of the run info panel,
+     containing the chart with a relative position for the empty-state overlay. */
+  .details-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 8px;
+    min-width: 0;
+    position: relative;
+  }
+
+  /* Fills all available vertical space so the Chart.js canvas stretches to fit. */
+  .chart-container {
+    flex: 1;
+    position: relative;
+    min-height: 0;
+  }
+
+  /* Fixed-width right panel showing run metadata (started by, started at, status). */
+  .details-right {
+    width: 190px;
+    flex-shrink: 0;
+    padding: 12px;
+    border-left: 1px solid var(--border-color);
+    overflow-y: auto;
+  }
+  .details-right .form-field { margin-bottom: 12px; }
+  /* Small muted label above each read-only field in the run info panel. */
+  .details-right label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 3px;
+  }
 </style>

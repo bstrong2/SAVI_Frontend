@@ -7,8 +7,8 @@
 
     <!-- ── Toolbar ── -->
     <div class="view-toolbar">
-      <button class="toolbar-btn" disabled>💾 Save Recipe</button>
-      <button class="toolbar-btn" disabled>↩ Discard Changes</button>
+      <button class="toolbar-btn" disabled><font-awesome-icon icon="floppy-disk" style="color: var(--accent)" /> Save Recipe</button>
+      <button class="toolbar-btn" disabled><font-awesome-icon icon="rotate-left" style="color: var(--accent)" /> Discard Changes</button>
       <button class="toolbar-btn" disabled>＋ Add Recipe</button>
     </div>
 

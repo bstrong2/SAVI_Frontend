@@ -525,7 +525,7 @@
     >
       <!-- ── Non-edit mode ── -->
       <template v-if="!isEditMode">
-        <button v-if="canOperate" class="toolbar-btn" @click.stop="startEdit">✏ Edit</button>
+        <button v-if="canOperate" class="toolbar-btn" @click.stop="startEdit"><font-awesome-icon icon="pen" style="color: #e6a817" /> Edit</button>
         <div v-if="canOperate" class="dropdown-wrapper">
           <button class="toolbar-btn" @click.stop="showAddMenu = !showAddMenu">＋ Add ▾</button>
           <div v-if="showAddMenu" class="dropdown-menu">
@@ -537,8 +537,8 @@
 
       <!-- ── Edit mode ── -->
       <template v-else>
-        <button v-if="selectedId !== null" class="toolbar-btn toolbar-btn-danger" @click="deleteSelected">🗑 Delete</button>
-        <button class="toolbar-btn active" @click="doneEdit">✔ Done Editing</button>
+        <button v-if="selectedId !== null" class="toolbar-btn toolbar-btn-danger" @click="deleteSelected"><font-awesome-icon icon="trash" /> Delete</button>
+        <button class="toolbar-btn active" @click="doneEdit"><font-awesome-icon icon="check" style="color: #4caf50" /> Done Editing</button>
 
         <!-- Background + Text color pickers — available for both sensors and rects -->
         <template v-if="selectedHasColor">
@@ -629,9 +629,9 @@
           <div class="toolbar-sep" />
 
           <!-- Alignment -->
-          <button class="toolbar-btn toolbar-align-btn" :class="{ active: selectedItem.textAlign === 'left' }"   title="Align left"   @click.stop="setAlign('left')"  >⬅</button>
-          <button class="toolbar-btn toolbar-align-btn" :class="{ active: selectedItem.textAlign === 'center' }" title="Center"       @click.stop="setAlign('center')">↔</button>
-          <button class="toolbar-btn toolbar-align-btn" :class="{ active: selectedItem.textAlign === 'right' }"  title="Align right"  @click.stop="setAlign('right')" >➡</button>
+          <button class="toolbar-btn toolbar-align-btn" :class="{ active: selectedItem.textAlign === 'left' }"   title="Align left"   @click.stop="setAlign('left')"  ><font-awesome-icon icon="align-left"   style="color: var(--accent)" /></button>
+          <button class="toolbar-btn toolbar-align-btn" :class="{ active: selectedItem.textAlign === 'center' }" title="Center"       @click.stop="setAlign('center')"><font-awesome-icon icon="align-center" style="color: var(--accent)" /></button>
+          <button class="toolbar-btn toolbar-align-btn" :class="{ active: selectedItem.textAlign === 'right' }"  title="Align right"  @click.stop="setAlign('right')" ><font-awesome-icon icon="align-right"  style="color: var(--accent)" /></button>
         </template>
       </template>
     </div>
@@ -762,7 +762,7 @@
     />
 
     <button v-if="canOperate" class="reconnect-all-btn" :disabled="reconnecting" @click.stop="reconnectAllDevices">
-      {{ reconnecting ? '↺ Reconnecting…' : '↺ Reconnect All Devices' }}
+      <font-awesome-icon icon="rotate-right" style="color: var(--accent)" /> {{ reconnecting ? 'Reconnecting…' : 'Reconnect All Devices' }}
     </button>
   </div>
 </template>
@@ -871,5 +871,261 @@
     letter-spacing: 0.08em;
     color: rgba(255, 255, 255, 0.45);
     text-transform: uppercase;
+  }
+
+  /*
+   * ==========================================
+   * Device canvas
+   * ==========================================
+   */
+
+  /* Outer container for the device canvas view — fills the main area. */
+  .device-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Scrollable viewport that wraps the canvas.
+     Overflow:auto lets both axes scroll when tiles exceed the visible area. */
+  .device-canvas-wrapper {
+    flex: 1;
+    overflow: auto;
+    position: relative;
+    background: var(--bg-canvas);
+  }
+
+  /* The actual canvas that tiles are absolutely positioned on.
+     Size is driven dynamically from the script based on tile positions. */
+  .device-canvas {
+    position: relative;
+    min-width: 100%;
+    min-height: 100%;
+  }
+
+  /* Sensor tile — the draggable card showing a sensor's name and live value. */
+  .sensor-tile {
+    position: absolute;
+    width: 120px;
+    min-height: 60px;
+    background: var(--bg-sensor-tile);
+    border: 1px solid var(--sensor-border);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: default;
+  }
+  /* In edit mode the cursor becomes a move cursor and the border highlights. */
+  .sensor-tile.editable { cursor: move; border-color: var(--accent); }
+  /* Sensor name at the top of the tile. */
+  .sensor-tile-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+    text-align: center;
+  }
+  /* Large live sensor reading value. */
+  .sensor-tile-value { color: var(--accent); font-size: 15px; font-weight: 700; margin-top: 4px; }
+  /* Small unit label (e.g. "°C", "psi") below the value. */
+  .sensor-tile-unit  { font-size: 10px; color: var(--text-secondary); }
+
+  /* Rectangle/zone tile — a freely resizable colored overlay on the canvas. */
+  .rect-tile {
+    position: absolute;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    border-radius: 3px;
+    cursor: default;
+    overflow: hidden;
+    min-width: 100px;
+    min-height: 50px;
+  }
+  /* Move cursor in edit mode. */
+  .rect-tile.editable { cursor: move; }
+
+  /* Label text inside a rectangle tile. */
+  .rect-tile-name {
+    display: block;
+    padding: 6px 8px 4px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* Resize handle anchored to the bottom-right corner of a rectangle tile. */
+  .rect-resize-grip {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-size: 14px;
+    line-height: 20px;
+    text-align: center;
+    cursor: se-resize;
+    opacity: 0.6;
+  }
+  .rect-resize-grip:hover { opacity: 1; }
+
+  /*
+   * ==========================================
+   * Color picker
+   * ==========================================
+   */
+
+  /* Wrapper that positions the popup relative to the trigger button. */
+  .color-picker-wrap,
+  .text-color-picker-wrap { position: relative; }
+
+  /* Trigger button that shows a color preview dot alongside the "Color" label. */
+  .color-preview-btn { display: flex; align-items: center; gap: 6px; }
+
+  /* Small colored square showing the currently selected color. */
+  .color-preview-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(0,0,0,0.2);
+    flex-shrink: 0;
+  }
+
+  /* Floating popup panel that appears below the trigger button. */
+  .color-picker-popup {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    padding: 12px;
+    z-index: 200;
+  }
+
+  /* 8-column grid of color swatches inside the popup. */
+  .color-swatches {
+    display: grid;
+    grid-template-columns: repeat(8, 28px);
+    gap: 5px;
+    margin-bottom: 10px;
+  }
+
+  /* Individual clickable color swatch square. */
+  .color-swatch {
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 0.1s;
+  }
+  /* Slight scale-up on hover for visual feedback. */
+  .color-swatch:hover  { transform: scale(1.15); border-color: rgba(0,0,0,0.25); }
+  /* Accent ring around the currently selected swatch. */
+  .color-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+
+  /* OK / Cancel buttons at the bottom of the color picker popup. */
+  .color-picker-footer {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
+  }
+
+  /*
+   * ==========================================
+   * Dropdown menu
+   * ==========================================
+   */
+
+  /* Anchor for absolute-positioned dropdown panels. */
+  .dropdown-wrapper { position: relative; }
+
+  /* Floating dropdown menu panel (e.g. the "Add ▾" menu). */
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 100;
+    min-width: 120px;
+  }
+  /* Full-width clickable rows inside the dropdown. */
+  .dropdown-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    padding: 7px 14px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .dropdown-menu button:hover { background: var(--bg-ribbon-btn-hover); }
+
+  /* Text input embedded in the toolbar for editing a rectangle's label. */
+  .toolbar-text-input {
+    height: 26px;
+    width: 130px;
+    padding: 2px 6px;
+    font-size: 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+  }
+
+  /* Narrow number input for font size in the toolbar. */
+  .toolbar-fontsize-input {
+    height: 26px;
+    width: 52px;
+    padding: 2px 4px;
+    font-size: 12px;
+    text-align: center;
+    border: 1px solid var(--border-color);
+    border-radius: 3px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+  }
+
+  /* Bold formatting toggle button in the toolbar. */
+  .toolbar-bold-btn {
+    font-weight: 800;
+    font-size: 14px;
+    min-width: 28px;
+    font-family: serif;
+  }
+
+  /* Text alignment buttons (left / center / right) in the toolbar. */
+  .toolbar-align-btn {
+    min-width: 28px;
+    font-size: 13px;
+  }
+
+  /* Red variant for destructive actions like Delete. */
+  .toolbar-btn-danger {
+    color: #f44336;
+    border-color: #f44336;
+  }
+  .toolbar-btn-danger:hover {
+    background: #f44336;
+    color: #fff;
+  }
+
+  /* Thin vertical line used to visually separate groups of toolbar buttons. */
+  .toolbar-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--border-color);
+    margin: 0 4px;
   }
 </style>

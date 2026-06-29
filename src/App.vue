@@ -770,3 +770,60 @@ function onSplitterMouseDown(e) {
     />
   </div>
 </template>
+
+<style scoped>
+/*
+ * ==========================================
+ * App shell layout
+ * ==========================================
+ */
+
+/* Outer flex column that stacks the ribbon, main view, splitter, and log panel
+   top to bottom and locks the whole thing to the viewport height. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg-body);
+  color: var(--text-primary);
+}
+
+/* Flexible region between the ribbon and the log panel — fills all remaining height. */
+.main-area {
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+  background: var(--bg-panel);
+}
+
+/* Centered message shown when the user needs to log in before viewing a page. */
+.login-required {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+/* Thin draggable bar between the main area and the log panel.
+   The cursor changes to a vertical resize arrow on hover. */
+.h-splitter {
+  height: 5px;
+  background: var(--bg-splitter);
+  cursor: ns-resize;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.h-splitter:hover { background: var(--accent); }
+
+/* Container for the scrollable log panel at the bottom of the screen. */
+.log-area {
+  flex-shrink: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-log);
+}
+</style>

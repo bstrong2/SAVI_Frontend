@@ -1,5 +1,11 @@
-*, *::before, *::after { box-sizing: border-box; }
+/* Forces all elements to include padding and border in their stated width/height
+   so layout math is predictable everywhere. */
+*, *::before, *::after { 
+  box-sizing: border-box; 
+}
 
+/* Removes default browser margin/padding, fills the full viewport height,
+   and sets the base font used across the whole app. */
 html, body {
   margin: 0;
   padding: 0;
@@ -8,355 +14,82 @@ html, body {
   font-size: 13px;
 }
 
-/* ── Theme tokens ── */
+/*
+ * ==========================================
+ * Theme
+ * ==========================================
+ */
+/* Light theme */
 :root {
-  --bg-ribbon-title:       #e4f4f4;
-  --ribbon-title-border:   #b8dede;
-  --logo-name-color:       #0a3030;
-  --bg-body:               #f0f0f0;
-  --bg-panel:              #ffffff;
-  --bg-ribbon:             #e8e8e8;
-  --bg-ribbon-btn-hover:   #d4d4d4;
-  --bg-ribbon-btn-active:  #c0c0c0;
-  --bg-input:              #ffffff;
-  --bg-splitter:           #b8b8b8;
-  --bg-log:                #ffffff;
-  --bg-toolbar:            #f5f5f5;
-  --bg-canvas:             #ffffff;
-  --bg-sensor-tile:        #f0f0f0;
-  --bg-table-header:       #e8e8e8;
-  --bg-table-alt:          #f9f9f9;
-  --bg-table-hover:        #f0f0f0;
-  --text-primary:          #1a1a1a;
-  --text-secondary:        #555555;
-  --text-ribbon:           #1a1a1a;
-  --border-color:          #cccccc;
-  --ribbon-border:         #ababab;
-  --group-label-color:     #666666;
-  --accent:                #0078d7;
-  --accent-hover:          #006cc1;
-  --sensor-border:         #cccccc;
+  --bg-ribbon-title: #e4f4f4;
+  --ribbon-title-border: #b8dede;
+  --logo-name-color: #0a3030;
+  --bg-body: #f0f0f0;
+  --bg-panel: #ffffff;
+  --bg-ribbon: #e8e8e8;
+  --bg-ribbon-btn-hover: #d4d4d4;
+  --bg-ribbon-btn-active: #c0c0c0;
+  --bg-input: #ffffff;
+  --bg-splitter: #b8b8b8;
+  --bg-log: #ffffff;
+  --bg-toolbar: #f5f5f5;
+  --bg-canvas: #ffffff;
+  --bg-sensor-tile: #f0f0f0;
+  --bg-table-header: #e8e8e8;
+  --bg-table-alt: #f9f9f9;
+  --bg-table-hover: #f0f0f0;
+  --text-primary: #1a1a1a;
+  --text-secondary: #555555;
+  --text-ribbon: #1a1a1a;
+  --border-color: #cccccc;
+  --ribbon-border: #ababab;
+  --group-label-color: #666666;
+  --accent: #0078d7;
+  --accent-hover: #006cc1;
+  --sensor-border: #cccccc;
 }
 
+/* Dark theme */
 [data-theme="dark"] {
-  --bg-ribbon-title:       #0a3030;
-  --ribbon-title-border:   #062020;
-  --logo-name-color:       #ffffff;
-  --bg-body:               #1e1e1e;
-  --bg-panel:              #252526;
-  --bg-ribbon:             #2d2d2d;
-  --bg-ribbon-btn-hover:   #3a3a3a;
-  --bg-ribbon-btn-active:  #4a4a4a;
-  --bg-input:              #3c3c3c;
-  --bg-splitter:           #444444;
-  --bg-log:                #1e1e1e;
-  --bg-toolbar:            #2d2d2d;
-  --bg-canvas:             #252526;
-  --bg-sensor-tile:        #2d2d2d;
-  --bg-table-header:       #2d2d2d;
-  --bg-table-alt:          #2a2a2a;
-  --bg-table-hover:        #2f2f2f;
-  --text-primary:          #cccccc;
-  --text-secondary:        #888888;
-  --text-ribbon:           #cccccc;
-  --border-color:          #444444;
-  --ribbon-border:         #555555;
-  --group-label-color:     #999999;
-  --accent:                #0078d7;
-  --accent-hover:          #1a8ae8;
-  --sensor-border:         #444444;
+  --bg-ribbon-title: #0a3030;
+  --ribbon-title-border: #062020;
+  --logo-name-color: #ffffff;
+  --bg-body: #1e1e1e;
+  --bg-panel: #252526;
+  --bg-ribbon: #2d2d2d;
+  --bg-ribbon-btn-hover: #3a3a3a;
+  --bg-ribbon-btn-active: #4a4a4a;
+  --bg-input: #3c3c3c;
+  --bg-splitter: #444444;
+  --bg-log: #1e1e1e;
+  --bg-toolbar: #2d2d2d;
+  --bg-canvas: #252526;
+  --bg-sensor-tile: #2d2d2d;
+  --bg-table-header: #2d2d2d;
+  --bg-table-alt: #2a2a2a;
+  --bg-table-hover: #2f2f2f;
+  --text-primary: #cccccc;
+  --text-secondary: #888888;
+  --text-ribbon: #cccccc;
+  --border-color: #444444;
+  --ribbon-border: #555555;
+  --group-label-color: #999999;
+  --accent: #0078d7;
+  --accent-hover: #1a8ae8;
+  --sensor-border: #444444;
 }
 
+/* Stretches the Vue mount point to fill the full page. */
 #app { height: 100%; }
 
-/* ── Shell layout ── */
-.app-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-  background: var(--bg-body);
-  color: var(--text-primary);
-}
 
-/* ── Ribbon ── */
-.ribbon {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: start;
-  background: var(--bg-ribbon);
-  border-bottom: 1px solid var(--ribbon-border);
-  flex-shrink: 0;
-  user-select: none;
-}
+/*
+ * ==========================================
+ * Form elements
+ * ==========================================
+ */
 
-.ribbon-groups {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-}
-
-.ribbon-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 18px;
-  background: var(--bg-ribbon-title);
-  border-right: 1px solid var(--ribbon-title-border);
-  white-space: nowrap;
-  align-self: stretch;
-}
-
-.ribbon-logo {
-  height: 46px;
-  width: 46px;
-  object-fit: contain;
-  flex-shrink: 0;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
-}
-
-.logo-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.logo-name {
-  font-size: 21px;
-  font-weight: 800;
-  letter-spacing: 3px;
-  color: var(--logo-name-color);
-  line-height: 1;
-}
-
-.logo-subtitle {
-  font-size: 9.5px;
-  font-weight: 500;
-  letter-spacing: 0.4px;
-  color: var(--logo-name-color);
-  opacity: 0.65;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.ribbon-group {
-  display: flex;
-  flex-direction: column;
-  padding: 6px 8px 4px;
-  border-right: 1px solid var(--ribbon-border);
-}
-
-.ribbon-group-btns {
-  display: flex;
-  gap: 3px;
-  flex: 1;
-  align-items: center;
-}
-
-.ribbon-group-label {
-  text-align: center;
-  font-size: 10px;
-  color: var(--group-label-color);
-  padding-top: 3px;
-  border-top: 1px solid var(--border-color);
-  margin-top: 4px;
-}
-
-.ribbon-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  color: var(--text-ribbon);
-  cursor: pointer;
-  padding: 5px 8px;
-  min-width: 58px;
-  font-size: 11px;
-  gap: 3px;
-  transition: background 0.1s, border-color 0.1s;
-  line-height: 1.2;
-}
-
-.ribbon-btn:hover {
-  background: var(--bg-ribbon-btn-hover);
-  border-color: var(--ribbon-border);
-}
-
-.ribbon-btn:active,
-.ribbon-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff !important;
-}
-
-.ribbon-icon { font-size: 22px; line-height: 1; }
-.ribbon-btn.active .ribbon-icon,
-.ribbon-btn:active .ribbon-icon { color: #fff !important; }
-
-/* Run button accent colors (override when not active) */
-.ribbon-btn.run-start:not(.active)    { color: #388e3c; }
-.ribbon-btn.run-log-only:not(.active) { color: #0097a7; }
-.ribbon-btn.run-pause:not(.active)    { color: #f57c00; }
-.ribbon-btn.run-resume:not(.active)   { color: #0288d1; }
-.ribbon-btn.run-stop:not(.active)     { color: #d32f2f; }
-
-.ribbon-right {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 14px;
-  min-height: 80px;
-  align-self: stretch;
-  white-space: nowrap;
-}
-
-.conn-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.conn-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.ribbon-user {
-  font-size: 11px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.theme-btn {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-primary);
-  cursor: pointer;
-  padding: 4px 10px;
-  font-size: 15px;
-  line-height: 1;
-}
-.theme-btn:hover { background: var(--bg-ribbon-btn-hover); }
-
-/* ── Main area ── */
-.main-area {
-  flex: 1;
-  overflow: hidden;
-  min-height: 0;
-  background: var(--bg-panel);
-}
-
-.login-required {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  font-size: 16px;
-  color: var(--text-secondary);
-}
-
-/* ── Splitter ── */
-.h-splitter {
-  height: 5px;
-  background: var(--bg-splitter);
-  cursor: ns-resize;
-  flex-shrink: 0;
-  transition: background 0.15s;
-}
-.h-splitter:hover { background: var(--accent); }
-
-/* ── Log area ── */
-.log-area {
-  flex-shrink: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-log);
-}
-
-/* ── View toolbar ── */
-.view-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  background: var(--bg-toolbar);
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
-}
-
-.toolbar-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-  color: var(--text-primary);
-  cursor: pointer;
-  padding: 3px 10px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-.toolbar-btn:hover  { background: var(--bg-ribbon-btn-hover); }
-.toolbar-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-.toolbar-btn-danger       { color: #f44336; border-color: #f44336; }
-.toolbar-btn-danger:hover { background: #f44336; color: #fff; }
-
-.toolbar-sep {
-  width: 1px;
-  height: 18px;
-  background: var(--border-color);
-  margin: 0 4px;
-}
-
-.toolbar-text-input {
-  height: 26px;
-  width: 130px;
-  padding: 2px 6px;
-  font-size: 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-}
-
-.toolbar-fontsize-input {
-  height: 26px;
-  width: 52px;
-  padding: 2px 4px;
-  font-size: 12px;
-  text-align: center;
-  border: 1px solid var(--border-color);
-  border-radius: 3px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-}
-
-.toolbar-bold-btn {
-  font-weight: 800;
-  font-size: 14px;
-  min-width: 28px;
-  font-family: serif;
-}
-
-.toolbar-align-btn {
-  min-width: 28px;
-  font-size: 13px;
-}
-
-/* ── Form elements ── */
+/* Base styles applied to every input, select, and textarea in the app.*/
 input[type="text"],
 input[type="password"],
 input[type="number"],
@@ -372,11 +105,13 @@ textarea {
   width: 100%;
 }
 
+/* Blue accent outline when an input is focused. */
 input:focus, select:focus, textarea:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
 
+/* Read-only inputs look muted and doesn't look like it's focused.*/
 input[readonly], textarea[readonly] {
   background: var(--bg-panel);
   color: var(--text-secondary);
@@ -386,17 +121,13 @@ input[readonly]:focus, textarea[readonly]:focus {
   outline: none;
 }
 
-/* ── Cards ── */
-.card {
-  background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 20px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-}
-[data-theme="dark"] .card { box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
 
-/* ── Buttons ── */
+
+/*
+ * ==========================================
+ * Button styles
+ * ==========================================
+ */
 .btn {
   border-radius: 4px;
   cursor: pointer;
@@ -405,339 +136,87 @@ input[readonly]:focus, textarea[readonly]:focus {
   padding: 6px 16px;
   border: 1px solid transparent;
 }
-.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
-.btn-secondary { background: var(--bg-panel); color: var(--text-primary); border-color: var(--border-color); }
-.btn-secondary:hover { background: var(--bg-ribbon-btn-hover); }
-.btn-danger  { background: #dc3545; color: #fff; border-color: #dc3545; }
-.btn-danger:hover  { background: #c82333; border-color: #c82333; }
 
-/* ── Log View ── */
-.log-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
-.log-header {
-  display: flex;
-  background: var(--bg-table-header);
-  border-bottom: 1px solid var(--border-color);
-  font-weight: 600;
-  font-size: 12px;
-  padding: 3px 8px;
-  flex-shrink: 0;
-}
-
-.log-body {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.log-row {
-  display: flex;
-  padding: 2px 8px;
-  font-size: 12px;
-  border-bottom: 1px solid transparent;
-}
-.log-row:hover { background: var(--bg-table-hover); }
-
-.log-col-time { width: 90px; flex-shrink: 0; color: var(--text-secondary); }
-.log-col-msg  { flex: 1; }
-
-/* Level colors */
-.log-row.level-info     { color: var(--text-primary); }
-.log-row.level-warning  { color: #daa520; }
-.log-row.level-error    { color: #f44336; }
-.log-row.level-critical { color: #fff; background: #c62828; font-weight: 600; }
-
-/* ── Device Layout ── */
-.device-layout {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-  position: relative;
-}
-
-.device-canvas-wrapper {
-  flex: 1;
-  overflow: auto;
-  position: relative;
-  background: var(--bg-canvas);
-}
-
-.device-canvas {
-  position: relative;
-  min-width: 100%;
-  min-height: 100%;
-}
-
-.sensor-tile {
-  position: absolute;
-  width: 120px;
-  min-height: 60px;
-  background: var(--bg-sensor-tile);
-  border: 1px solid var(--sensor-border);
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-size: 12px;
-  cursor: default;
-}
-.sensor-tile.editable { cursor: move; border-color: var(--accent); }
-.sensor-tile-name  { font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; text-align: center; }
-.sensor-tile-value { color: var(--accent); font-size: 15px; font-weight: 700; margin-top: 4px; }
-.sensor-tile-unit  { font-size: 10px; color: var(--text-secondary); }
-
-.rect-tile {
-  position: absolute;
-  border: 1px solid rgba(0, 0, 0, 0.25);
-  border-radius: 3px;
-  cursor: default;
-  overflow: hidden;
-  min-width: 100px;
-  min-height: 50px;
-}
-.rect-tile.editable { cursor: move; }
-
-.rect-tile-name {
-  display: block;
-  padding: 6px 8px 4px;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.rect-resize-grip {
-  position: absolute;
-  bottom: 2px;
-  right: 2px;
-  width: 20px;
-  height: 20px;
-  background: transparent;
-  border: none;
-  padding: 0;
-  font-size: 14px;
-  line-height: 20px;
-  text-align: center;
-  cursor: se-resize;
-  opacity: 0.6;
-}
-.rect-resize-grip:hover { opacity: 1; }
-
-/* ── Color picker ── */
-.color-picker-wrap,
-.text-color-picker-wrap { position: relative; }
-
-.color-preview-btn { display: flex; align-items: center; gap: 6px; }
-
-.color-preview-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
-  border: 1px solid rgba(0,0,0,0.2);
-  flex-shrink: 0;
-}
-
-.color-picker-popup {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+.btn-secondary {
   background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-  padding: 12px;
-  z-index: 200;
-}
-
-.color-swatches {
-  display: grid;
-  grid-template-columns: repeat(8, 28px);
-  gap: 5px;
-  margin-bottom: 10px;
-}
-
-.color-swatch {
-  width: 28px;
-  height: 28px;
-  border-radius: 4px;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: transform 0.1s;
-}
-.color-swatch:hover  { transform: scale(1.15); border-color: rgba(0,0,0,0.25); }
-.color-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
-
-.color-picker-footer {
-  display: flex;
-  gap: 6px;
-  justify-content: flex-end;
-}
-
-.dropdown-wrapper { position: relative; }
-.dropdown-menu {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  z-index: 100;
-  min-width: 120px;
-}
-.dropdown-menu button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  background: transparent;
-  border: none;
-  padding: 7px 14px;
   color: var(--text-primary);
-  cursor: pointer;
-  font-size: 12px;
+  border-color: var(--border-color);
 }
-.dropdown-menu button:hover { background: var(--bg-ribbon-btn-hover); }
+.btn-secondary:hover {
+  background: var(--bg-ribbon-btn-hover);
+}
 
-/* ── Logging Details ── */
-.logging-details {
+.btn-danger {
+  background: #dc3545;
+  color: #fff;
+  border-color: #dc3545;
+}
+.btn-danger:hover {
+  background: #c82333;
+  border-color: #c82333;
+}
+
+
+/*
+ * ==========================================
+ * View toolbar
+ * ==========================================
+ */
+
+/* Thin toolbar strip at the top of each view containing action buttons. */
+.view-toolbar {
   display: flex;
-  height: 100%;
-  overflow: hidden;
-}
-
-
-.details-center {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding: 8px;
-  min-width: 0;
-  position: relative;
-}
-
-.chart-container {
-  flex: 1;
-  position: relative;
-  min-height: 0;
-}
-
-.details-right {
-  width: 190px;
-  flex-shrink: 0;
-  padding: 12px;
-  border-left: 1px solid var(--border-color);
-  overflow-y: auto;
-}
-.details-right .form-field {
-  margin-bottom: 12px;
-}
-.details-right label {
-  display: block;
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-bottom: 3px;
-}
-
-/* ── Settings ── */
-.settings-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-.settings-table {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.settings-table table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.settings-table th {
-  background: var(--bg-table-header);
-  text-align: left;
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 0;
-}
-.settings-table td {
-  padding: 4px 10px;
-  border-bottom: 1px solid var(--border-color);
-  font-size: 12px;
-  vertical-align: middle;
-}
-.settings-table tr:nth-child(even) td { background: var(--bg-table-alt); }
-.settings-table tr:hover td          { background: var(--bg-table-hover); }
-
-.settings-table td input[type="text"],
-.settings-table td input[type="number"] {
-  padding: 2px 6px;
-  font-size: 12px;
-  width: 100%;
-}
-
-.settings-group-row td {
-  background: var(--bg-table-header) !important;
-  font-weight: 600;
-}
-
-.depth-indent { display: inline-block; }
-
-/* ── Users ── */
-.users-view {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 20px;
-  height: 100%;
-  overflow-y: auto;
-}
-
-.users-view h2 {
-  margin: 0 0 16px;
-  font-size: 18px;
-  color: var(--text-primary);
-}
-
-.add-user-form {
-  display: grid;
-  grid-template-columns: 100px 1fr;
-  gap: 8px 12px;
   align-items: center;
-  max-width: 480px;
-}
-.add-user-form label { font-size: 13px; color: var(--text-secondary); }
-
-.users-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.users-table th {
-  background: var(--bg-table-header);
-  text-align: left;
-  padding: 7px 12px;
-  font-weight: 600;
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--bg-toolbar);
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
-.users-table td {
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--border-color);
-  vertical-align: middle;
-}
-.users-table tr:nth-child(even) td { background: var(--bg-table-alt); }
-.users-table tr:hover td          { background: var(--bg-table-hover); }
-.users-table select { width: auto; }
 
-/* ── Dialog ── */
+/* Standard button used inside view toolbars. */
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 3px 10px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.toolbar-btn:hover {
+  background: var(--bg-ribbon-btn-hover);
+}
+
+/* Filled accent style when a toolbar button represents the currently active state. */
+.toolbar-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+
+/*
+ * ==========================================
+ * Dialog
+ * ==========================================
+ */
+
+/* Fullscreen semi-transparent backdrop behind dialogs.*/
 .dialog-overlay {
   position: fixed;
   inset: 0;
@@ -748,6 +227,7 @@ input[readonly]:focus, textarea[readonly]:focus {
   z-index: 1000;
 }
 
+/* The dialog panel itself centered by the overlay's flex layout. */
 .dialog-box {
   background: var(--bg-panel);
   border: 1px solid var(--border-color);
@@ -757,6 +237,7 @@ input[readonly]:focus, textarea[readonly]:focus {
   min-width: 280px;
 }
 
+/* 2-column grid row inside a dialog. label on the left, input on the right. */
 .dialog-row {
   display: grid;
   grid-template-columns: 82px 1fr;
@@ -765,12 +246,14 @@ input[readonly]:focus, textarea[readonly]:focus {
   margin-bottom: 10px;
 }
 
+/* Label text in a dialog row. */
 .dialog-label {
   font-size: 13px;
   color: var(--text-primary);
   white-space: nowrap;
 }
 
+/* Styled input/select/textarea*/
 .dialog-input {
   height: 26px;
   padding: 2px 6px;
@@ -782,12 +265,14 @@ input[readonly]:focus, textarea[readonly]:focus {
   color: var(--text-primary);
   width: 100%;
 }
+/* Accent border and glow when a dialog input is focused. */
 .dialog-input:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(0, 120, 215, 0.2);
 }
 
+/* Button row at the bottom of a dialog, right-aligned. */
 .dialog-footer {
   display: flex;
   gap: 8px;
@@ -795,6 +280,7 @@ input[readonly]:focus, textarea[readonly]:focus {
   margin-top: 14px;
 }
 
+/* Bold title bar at the top of a dialog with a separator line below it. */
 .dialog-title {
   margin: 0 0 14px;
   font-size: 15px;
@@ -804,6 +290,7 @@ input[readonly]:focus, textarea[readonly]:focus {
   padding-bottom: 8px;
 }
 
+/* Small all caps label used as a section header inside dialogs and panels. */
 .section-label {
   font-size: 11px;
   font-weight: 700;
@@ -812,8 +299,16 @@ input[readonly]:focus, textarea[readonly]:focus {
   color: var(--text-secondary);
 }
 
-/* ── Context menu ── */
-.dc-context-menu {
+
+/*
+ * ==========================================
+ * Context menu... Most of these are used in
+ * Settings and Device Connections.
+ * Context menu's are pop ups that appear when you interact with an element on your screen.
+ * ==========================================
+ */
+
+.context-menu {
   position: fixed;
   background: var(--bg-panel);
   border: 1px solid var(--border-color);
@@ -824,7 +319,7 @@ input[readonly]:focus, textarea[readonly]:focus {
   padding: 3px 0;
 }
 
-.ctx-item {
+.context-item {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -838,6 +333,13 @@ input[readonly]:focus, textarea[readonly]:focus {
   color: var(--text-primary);
   cursor: pointer;
 }
-.ctx-item:hover       { background: var(--bg-ribbon-btn-hover); }
-.ctx-item-danger      { color: #e53935; }
-.ctx-item-danger:hover { background: #fdecea; }
+.context-item:hover {
+  background: var(--bg-ribbon-btn-hover);
+}
+
+.context-item-danger {
+  color: #e53935;
+}
+.context-item-danger:hover {
+  background: #fdecea;
+}

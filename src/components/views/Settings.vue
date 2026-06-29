@@ -230,9 +230,9 @@
 <template>
   <div class="settings-view" @click="hideCtx">
     <div class="view-toolbar">
-      <button class="toolbar-btn" @click.stop="saveSettings">💾 Save Settings</button>
-      <span v-if="unsavedChanges" class="unsaved-indicator">⚠ Unsaved changes</span>
-      <button class="toolbar-btn" @click.stop="loadSettings">📂 Load Settings (last saved)</button>
+      <button class="toolbar-btn" @click.stop="saveSettings"><font-awesome-icon icon="floppy-disk" style="color: var(--accent)" /> Save Settings</button>
+      <span v-if="unsavedChanges" class="unsaved-indicator"><font-awesome-icon icon="triangle-exclamation" /> Unsaved changes</span>
+      <button class="toolbar-btn" @click.stop="loadSettings"><font-awesome-icon icon="folder-open" style="color: #e6a817" /> Load Settings (last saved)</button>
     </div>
 
     <div class="settings-table">
@@ -276,7 +276,7 @@
             @contextmenu="e => showCtx(e, 'category', null)">
             <td colspan="3">
               <span class="dc-toggle">{{ dcExpanded ? '▾' : '▸' }}</span>
-              🔗 Device Connections
+              <font-awesome-icon icon="link" style="color: var(--accent)" /> Device Connections
               <span class="dc-hint">right-click to add</span>
             </td>
           </tr>
@@ -289,7 +289,7 @@
                 <td colspan="3">
                   <span class="depth-indent" style="width:20px" />
                   <span class="dc-toggle">{{ device.expanded ? '▾' : '▸' }}</span>
-                  <span>{{ device.type === DEVICE_TYPES.Com ? '🔌' : '🌐' }}</span>
+                  <font-awesome-icon :icon="device.type === DEVICE_TYPES.Com ? 'plug' : 'network-wired'" :style="{ color: device.type === DEVICE_TYPES.Com ? '#4caf50' : 'var(--accent)' }" />
                   {{ device.name }}
                 </td>
               </tr>
@@ -318,7 +318,7 @@
           <tr class="settings-group-row">
             <td colspan="3">
               <span class="dc-toggle">▾</span>
-              📈 Charting
+              <font-awesome-icon icon="chart-line" style="color: #4caf50" /> Charting
             </td>
           </tr>
           <tr>
@@ -344,13 +344,13 @@
     </div>
 
     <!-- Context menu -->
-    <div v-if="ctx.visible" class="dc-context-menu" :style="{ top: ctx.y + 'px', left: ctx.x + 'px' }" @click.stop>
+    <div v-if="ctx.visible" class="context-menu" :style="{ top: ctx.y + 'px', left: ctx.x + 'px' }" @click.stop>
       <template v-if="ctx.mode === 'category'">
-        <button class="ctx-item" @click="addDevice(DEVICE_TYPES.Com)"><span>🔌</span> Add COM Device</button>
-        <button class="ctx-item" @click="addDevice(DEVICE_TYPES.Ip)"><span>🌐</span> Add IP Device</button>
+        <button class="context-item" @click="addDevice(DEVICE_TYPES.Com)"><font-awesome-icon icon="plug" class="context-icon" style="color: #4caf50" /> Add COM Device</button>
+        <button class="context-item" @click="addDevice(DEVICE_TYPES.Ip)"><font-awesome-icon icon="network-wired" class="context-icon" style="color: var(--accent)" /> Add IP Device</button>
       </template>
       <template v-else-if="ctx.mode === 'device'">
-        <button class="ctx-item ctx-item-danger" @click="deleteDevice(ctx.target)"><span>🗑</span> Delete</button>
+        <button class="context-item context-item-danger" @click="deleteDevice(ctx.target)"><font-awesome-icon icon="trash" class="context-icon" /> Delete</button>
       </template>
     </div>
   </div>
@@ -377,8 +377,72 @@
   .dc-toggle { 
     font-size: 10px; color: var(--text-secondary); margin-right: 4px; 
   }
-  .dc-hint   { 
-    font-size: 10px; color: var(--text-secondary); font-weight: 400; margin-left: 8px; 
+  .dc-hint   {
+    font-size: 10px; color: var(--text-secondary); font-weight: 400; margin-left: 8px;
   }
+
+  /*
+   * ==========================================
+   * Settings table
+   * ==========================================
+   */
+
+  /* Outer container for the settings view — fills the main area. */
+  .settings-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Scrollable wrapper around the settings tree table. */
+  .settings-table {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .settings-table table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  /* Sticky column headers that stay visible when scrolling the table. */
+  .settings-table th {
+    background: var(--bg-table-header);
+    text-align: left;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+  }
+  .settings-table td {
+    padding: 4px 10px;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 12px;
+    vertical-align: middle;
+  }
+  /* Alternating row shading for easier scanning. */
+  .settings-table tr:nth-child(even) td { background: var(--bg-table-alt); }
+  .settings-table tr:hover td          { background: var(--bg-table-hover); }
+
+  /* Inline edit inputs inside settings table cells — override the global input padding. */
+  .settings-table td input[type="text"],
+  .settings-table td input[type="number"] {
+    padding: 2px 6px;
+    font-size: 12px;
+    width: 100%;
+  }
+
+  /* Group header rows (e.g. "Connection", "Logging") get a darker background. */
+  .settings-group-row td {
+    background: var(--bg-table-header) !important;
+    font-weight: 600;
+  }
+
+  /* Spacer element used to indent child rows under a group header. */
+  .depth-indent { display: inline-block; }
+
+  .context-icon { width: 14px; flex-shrink: 0; }
 
 </style>

@@ -129,3 +129,201 @@ function handleRun(cmd) {
     </div>
   </div>
 </template>
+
+<style scoped>
+/*
+ * ==========================================
+ * Ribbon
+ * ==========================================
+ */
+
+/* 3-column grid: brand panel on the left | button groups in the middle | status/user on the right. */
+.ribbon {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: start;
+  background: var(--bg-ribbon);
+  border-bottom: 1px solid var(--ribbon-border);
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* Wrapping flex row that holds all the individual ribbon button groups. */
+.ribbon-groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+/* Teal brand panel on the far left containing the logo and app name. */
+.ribbon-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px;
+  background: var(--bg-ribbon-title);
+  border-right: 1px solid var(--ribbon-title-border);
+  white-space: nowrap;
+  align-self: stretch;
+}
+
+/* The SAVI logo image. */
+.ribbon-logo {
+  height: 46px;
+  width: 46px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+}
+
+/* Vertical stack holding the app name and subtitle. */
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Large "SAVI" title text. */
+.logo-name {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: var(--logo-name-color);
+  line-height: 1;
+}
+
+/* Small tagline/version text below the app name. */
+.logo-subtitle {
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  color: var(--logo-name-color);
+  opacity: 0.65;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* One logical group of ribbon buttons (e.g. "Run", "View") with a label beneath. */
+.ribbon-group {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px 4px;
+  border-right: 1px solid var(--ribbon-border);
+}
+
+/* Horizontal row of buttons inside a ribbon group. */
+.ribbon-group-btns {
+  display: flex;
+  gap: 3px;
+  flex: 1;
+  align-items: center;
+}
+
+/* Small label displayed below each ribbon group (e.g. "Run", "View", "File"). */
+.ribbon-group-label {
+  text-align: center;
+  font-size: 10px;
+  color: var(--group-label-color);
+  padding-top: 3px;
+  border-top: 1px solid var(--border-color);
+  margin-top: 4px;
+}
+
+/* Individual clickable button in the ribbon — icon stacked above a text label. */
+.ribbon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text-ribbon);
+  cursor: pointer;
+  padding: 5px 8px;
+  min-width: 58px;
+  font-size: 11px;
+  gap: 3px;
+  transition: background 0.1s, border-color 0.1s;
+  line-height: 1.2;
+}
+.ribbon-btn:hover {
+  background: var(--bg-ribbon-btn-hover);
+  border-color: var(--ribbon-border);
+}
+/* Active state — filled accent background when a view button is currently selected. */
+.ribbon-btn:active,
+.ribbon-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff !important;
+}
+
+/* Large icon that sits above the button's text label. */
+.ribbon-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.ribbon-btn.active .ribbon-icon,
+.ribbon-btn:active .ribbon-icon {
+  color: #fff !important;
+}
+
+/* Per-button accent colors for the run-control buttons when they are not active. */
+.ribbon-btn.run-start:not(.active)    { color: #388e3c; }
+.ribbon-btn.run-log-only:not(.active) { color: #0097a7; }
+.ribbon-btn.run-pause:not(.active)    { color: #f57c00; }
+.ribbon-btn.run-resume:not(.active)   { color: #0288d1; }
+.ribbon-btn.run-stop:not(.active)     { color: #d32f2f; }
+
+/* Right-side ribbon panel containing the connection status dot and logged-in username. */
+.ribbon-right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 14px;
+  min-height: 80px;
+  align-self: stretch;
+  white-space: nowrap;
+}
+
+/* Row showing the connection status dot and "Connected / Disconnected" text. */
+.conn-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* Small colored circle that goes green when SignalR is connected, red when not. */
+.conn-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Displays the currently logged-in username. */
+.ribbon-user {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+/* Light/dark theme toggle button in the ribbon's right panel. */
+.theme-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px 10px;
+  font-size: 15px;
+  line-height: 1;
+}
+.theme-btn:hover { background: var(--bg-ribbon-btn-hover); }
+</style>

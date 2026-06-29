@@ -49,3 +49,65 @@
     </div>
   </div>
 </template>
+
+<style scoped>
+/*
+ * ==========================================
+ * Log view
+ * ==========================================
+ */
+
+/* Full-height flex column that holds the log header and scrollable log body. */
+.log-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Sticky column header row above the log entries. */
+.log-header {
+  display: flex;
+  background: var(--bg-table-header);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  font-size: 12px;
+  padding: 3px 8px;
+  flex-shrink: 0;
+}
+
+/* Scrollable container for all log entry rows. */
+.log-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* One log entry row — timestamp column + message column. */
+.log-row {
+  display: flex;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-bottom: 1px solid transparent;
+}
+.log-row:hover { background: var(--bg-table-hover); }
+
+/* Fixed-width timestamp column. */
+.log-col-time {
+  width: 90px;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+/* Message column fills all remaining space. */
+.log-col-msg { flex: 1; }
+
+/* Text color per log severity level. */
+.log-row.level-info    { color: var(--text-primary); }
+.log-row.level-warning { color: #daa520; }
+.log-row.level-error   { color: #f44336; }
+/* Critical entries get a red background to stand out immediately. */
+.log-row.level-critical {
+  color: #fff;
+  background: #c62828;
+  font-weight: 600;
+}
+</style>

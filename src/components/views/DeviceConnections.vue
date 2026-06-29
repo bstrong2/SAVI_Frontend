@@ -151,8 +151,8 @@
 
     <!-- Toolbar -->
     <div class="view-toolbar">
-      <button class="toolbar-btn" @click.stop="saveSettings">💾 Save Settings</button>
-      <button class="toolbar-btn" @click.stop="loadSettings">📂 Load Settings</button>
+      <button class="toolbar-btn" @click.stop="saveSettings"><font-awesome-icon icon="floppy-disk" style="color: var(--accent)" /> Save Settings</button>
+      <button class="toolbar-btn" @click.stop="loadSettings"><font-awesome-icon icon="folder-open" style="color: #e6a817" /> Load Settings</button>
     </div>
 
     <!-- Column headers -->
@@ -173,7 +173,7 @@
       >
         <div class="dc-col-name">
           <span class="dc-toggle">{{ root.expanded ? '▾' : '▸' }}</span>
-          🔗 Device Connections
+          <font-awesome-icon icon="link" style="color: var(--accent)" /> Device Connections
         </div>
         <div class="dc-col-value" />
         <div class="dc-col-desc">Network and serial device connections</div>
@@ -192,7 +192,7 @@
             <div class="dc-col-name">
               <span class="dc-indent" />
               <span class="dc-toggle">{{ device.expanded ? '▾' : '▸' }}</span>
-              <span class="dc-device-icon">{{ device.type === 'com' ? '🔌' : '🌐' }}</span>
+              <font-awesome-icon :icon="device.type === 'com' ? 'plug' : 'network-wired'" :style="{ color: device.type === 'com' ? '#4caf50' : 'var(--accent)' }" class="dc-device-icon" />
               {{ device.name }}
             </div>
             <div class="dc-col-value" />
@@ -250,21 +250,21 @@
     <!-- Context menu -->
     <div
       v-if="ctx.visible"
-      class="dc-context-menu"
+      class="context-menu"
       :style="{ top: ctx.y + 'px', left: ctx.x + 'px' }"
       @click.stop
     >
       <template v-if="ctx.mode === 'category'">
-        <button class="ctx-item" @click="addDevice('com')">
-          <span class="ctx-icon">🔌</span> Add COM Device
+        <button class="context-item" @click="addDevice('com')">
+          <font-awesome-icon icon="plug" class="context-icon" style="color: #4caf50" /> Add COM Device
         </button>
-        <button class="ctx-item" @click="addDevice('ip')">
-          <span class="ctx-icon">🌐</span> Add IP Device
+        <button class="context-item" @click="addDevice('ip')">
+          <font-awesome-icon icon="network-wired" class="context-icon" style="color: var(--accent)" /> Add IP Device
         </button>
       </template>
       <template v-else-if="ctx.mode === 'device'">
-        <button class="ctx-item ctx-item-danger" @click="deleteDevice(ctx.target)">
-          <span class="ctx-icon">🗑</span> Delete
+        <button class="context-item context-item-danger" @click="deleteDevice(ctx.target)">
+          <font-awesome-icon icon="trash" class="context-icon" /> Delete
         </button>
       </template>
     </div>
@@ -385,7 +385,8 @@
   width: 100px; 
 }
 
-.ctx-icon {
-  font-size: 14px;
+.context-icon {
+  width: 14px;
+  flex-shrink: 0;
 }
 </style>

@@ -185,7 +185,7 @@
     <div class="card">
       <div style="font-weight:600; margin-bottom:10px">
         Users with access to this instance
-        <button class="btn btn-secondary" style="margin-left:12px; font-size:12px; padding:2px 10px" @click="fetchUsers">↺ Refresh</button>
+        <button class="btn btn-secondary" style="margin-left:12px; font-size:12px; padding:2px 10px" @click="fetchUsers"><font-awesome-icon icon="rotate-right" style="color: var(--accent)" /> Refresh</button>
       </div>
 
       <div v-if="loading" style="color:var(--text-secondary); padding:12px">Loading…</div>
@@ -213,7 +213,7 @@
                 </select>
                 <template v-if="pendingRoles[user.id]">
                   <button class="btn btn-primary btn-xs" @click="confirmRoleUpdate(user)">Update</button>
-                  <button class="btn btn-secondary btn-xs" @click="cancelRoleEdit(user)" title="Cancel">✕</button>
+                  <button class="btn btn-secondary btn-xs" @click="cancelRoleEdit(user)" title="Cancel"><font-awesome-icon icon="xmark" style="color: #e53935" /></button>
                 </template>
               </div>
             </td>
@@ -267,4 +267,69 @@
   .row-dirty td {
     background: color-mix(in srgb, var(--accent-color, #1976d2) 6%, transparent);
   }
+
+  /*
+   * ==========================================
+   * Users view
+   * ==========================================
+   */
+
+  /* Floating panel with a border and subtle drop shadow. */
+  .card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 20px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  }
+
+  /* Outer scrollable container for the Users management page. */
+  .users-view {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  .users-view h2 {
+    margin: 0 0 16px;
+    font-size: 18px;
+    color: var(--text-primary);
+  }
+
+  /* 2-column grid form for adding a new user (label | input). */
+  .add-user-form {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 8px 12px;
+    align-items: center;
+    max-width: 480px;
+  }
+  .add-user-form label { font-size: 13px; color: var(--text-secondary); }
+
+  /* Full-width table listing all existing users with their roles. */
+  .users-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .users-table th {
+    background: var(--bg-table-header);
+    text-align: left;
+    padding: 7px 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .users-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+  }
+  /* Alternating row shading. */
+  .users-table tr:nth-child(even) td { background: var(--bg-table-alt); }
+  .users-table tr:hover td          { background: var(--bg-table-hover); }
+  /* Role dropdowns only need to be as wide as their content, not full cell width. */
+  .users-table select { width: auto; }
 </style>
