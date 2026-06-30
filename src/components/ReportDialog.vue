@@ -1,5 +1,6 @@
-<script setup>
+﻿<script setup>
   import { ref, onMounted, inject } from 'vue'
+  import { LOG_LEVELS } from '../constants/logLevels.js'
 
 
   /////////////////////////////////////////////
@@ -21,13 +22,15 @@
   // Mounts
   onMounted(async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/runs`)
-      if (res.ok) {
-        runs.value = await res.json()
+      const response = await fetch(`${BACKEND_URL}/api/runs`)
+      if (response.ok) {
+        runs.value = await response.json()
         selectedRun.value = runs.value[0] ?? null
+      } else {
+        addLog(`Failed to load runs (HTTP ${response.status})`, LOG_LEVELS.Warning)
       }
     } catch (e) {
-      addLog(`Failed to fetch runs: ${e.message}`, 'Error')
+      addLog(`Failed to fetch runs: ${e.message}`, LOG_LEVELS.Error)
     }
     finally { 
       loading.value = false 
@@ -77,14 +80,14 @@
       // Fetch full run details
       let readings = []
       try {
-        const res = await fetch(`${BACKEND_URL}/api/runs/${selectedRun.value.id}`)
-        if (res.ok) {
-          readings = (await res.json()).readings ?? []
+        const response = await fetch(`${BACKEND_URL}/api/runs/${selectedRun.value.id}`)
+        if (response.ok) {
+          readings = (await response.json()).readings ?? []
         } else {
-          addLog(`Report: failed to fetch run data (HTTP ${res.status})`, 'Warning')
+          addLog(`Report: failed to fetch run data (HTTP ${response.status})`, LOG_LEVELS.Warning)
         }
       } catch (e) {
-        addLog(`Report: could not reach backend — ${e.message}`, 'Error')
+        addLog(`Report: could not reach backend — ${e.message}`, LOG_LEVELS.Error)
       }
       // Replace any spaces with underscores.
       const baseName = selectedRun.value.name.replace(/\s+/g, '_')
@@ -115,7 +118,7 @@
         triggerDownload(combinedSensorData(metaRows, readings), `${baseName}_report.csv`)
       }
     } catch (e) {
-      addLog(`Report generation failed: ${e.message}`, 'Error')
+      addLog(`Report generation failed: ${e.message}`, LOG_LEVELS.Error)
     }
   }
 </script>

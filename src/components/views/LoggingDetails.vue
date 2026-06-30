@@ -1,5 +1,6 @@
-<script setup>
+﻿<script setup>
   import { ref, computed, inject, watch, onMounted, onUnmounted } from 'vue'
+  import { LOG_LEVELS } from '../../constants/logLevels.js'
   import { Line } from 'vue-chartjs'
   import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 
@@ -23,6 +24,7 @@
   const chartData = inject('chartData')
   const loggedSensors = inject('loggedSensors')
   const BACKEND_URL = inject('BACKEND_URL')
+  const addLog = inject('addLog', (msg, level) => console.error(msg))
 
 
   /////////////////////////////////////////////
@@ -117,12 +119,16 @@
     } else {
       // No run in memory — show the most recent completed run from DB
       try {
-        const res = await fetch(`${BACKEND_URL}/api/runs`)
-        if (res.ok) {
-          const runs = await res.json()
+        const response = await fetch(`${BACKEND_URL}/api/runs`)
+        if (response.ok) {
+          const runs = await response.json()
           if (runs.length > 0) await loadChartFromDb(runs[0].id)
+        } else {
+          addLog(`Failed to load runs (HTTP ${response.status})`, LOG_LEVELS.Warning)
         }
-      } catch { /* backend unreachable */ }
+      } catch (e) {
+        addLog(`Failed to load runs: ${e.message}`, LOG_LEVELS.Warning)
+      }
     }
   })
 
@@ -150,11 +156,13 @@
 
   async function loadChartFromDb(runId) {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/runs/${runId}`)
-      if (!res.ok) 
+      const response = await fetch(`${BACKEND_URL}/api/runs/${runId}`)
+      if (!response.ok) {
+        addLog(`Failed to load run data (HTTP ${response.status})`, LOG_LEVELS.Warning)
         return
+      }
 
-      const details = await res.json()
+      const details = await response.json()
       const readings = details.readings ?? []
       if (readings.length === 0) 
         return
@@ -202,8 +210,9 @@
           })),
         }
       }
-    } catch
-      { /* backend unreachable */ }
+    } catch (e) {
+      addLog(`Failed to load chart data: ${e.message}`, LOG_LEVELS.Warning)
+    }
   }
 
   function fmtDateTime(d = new Date()) {

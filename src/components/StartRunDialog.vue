@@ -1,6 +1,7 @@
-<script setup>
+﻿<script setup>
   import { ref, computed, inject, watch, onMounted } from 'vue'
   import { DRIVERS } from '../constants/devices.js'
+  import { LOG_LEVELS } from '../constants/logLevels.js'
 
 
   /////////////////////////////////////////////
@@ -64,17 +65,18 @@
   // Mounts
   onMounted(async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/recipes`)
-      if (res.ok) {
-        recipes.value = await res.json()
-        if (recipes.value.length) 
+      const response = await fetch(`${BACKEND_URL}/api/recipes`)
+      if (response.ok) {
+        recipes.value = await response.json()
+        if (recipes.value.length)
           selectedRecipe.value = recipes.value[0].name
       } else {
         fetchErr.value = true
+        addLog(`Failed to load recipes (HTTP ${response.status})`, LOG_LEVELS.Warning)
       }
     } catch (e) {
       fetchErr.value = true
-      addLog(`Failed to fetch recipes... Is the backend running?\n ${e}`, 'Error')
+      addLog(`Failed to fetch recipes... Is the backend running?\n ${e}`, LOG_LEVELS.Error)
     } finally {
       loading.value = false
     }

@@ -1,8 +1,9 @@
-<script setup>
+﻿<script setup>
   import { ref, computed, inject, onMounted, onUnmounted } from 'vue'
   import AddSensorDialog from '../AddSensorDialog.vue'
   import { PERMISSIONS, canAccess } from '../../auth/roles.js'
-  import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS } from '../../constants/devices.js'
+  import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS, DRIVER_DEFAULTS } from '../../constants/devices.js'
+  import { LOG_LEVELS } from '../../constants/logLevels.js'
 
 
   /////////////////////////////////////////////
@@ -49,9 +50,7 @@
   /////////////////////////////////////////////
   // Define computed properties.
   const canOperate = computed(() => canAccess(currentUser?.value, PERMISSIONS.OperatorOnly))
-  const isRunning = computed(() =>
-    runState.value === 'running' || runState.value === 'paused'
-  )
+  const isRunning = computed(() => runState.value === 'running' || runState.value === 'paused')
   const selectedItem = computed(() => items.value.find(i => i.id === selectedId.value) ?? null)
   const selectedIsRect = computed(() => selectedItem.value?.type === 'rect')
   const selectedIsSensor = computed(() => selectedItem.value?.type === 'sensor')
@@ -85,7 +84,6 @@
 
   /////////////////////////////////////////////
   // Defining all functions.
-
   function isRecipeRelay(item) {
     return isRunning.value && runInfo.value?.doSensorId === item.id
   }
@@ -93,6 +91,7 @@
   function onKeyDown(e) {
     if ((e.key === 'Delete' || e.key === 'Backspace') && isEditMode.value && selectedId.value !== null) {
       const tag = document.activeElement?.tagName
+
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT')
         return
 
@@ -102,29 +101,20 @@
 
   async function loadLayout() {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/layout`)
-      if (!res.ok) 
+      const response = await fetch(`${BACKEND_URL}/api/layout`)
+      if (!response.ok) {
+        addLog(`Layout load failed (HTTP ${response.status})`, LOG_LEVELS.Warning)
         return
+      }
       
-      const data = await res.json()
+      const data = await response.json()
 
       if (Array.isArray(data) && data.length > 0) {
-        // Normalise fields added after initial save
-        data.forEach(item => {
-          if (item.type !== 'sensor') 
-            return
-          
-          if (item.driver === DRIVERS.Relay && item.relayState == null)
-            item.relayState = 'off'
-
-          if (item.driver === DRIVERS.CollisionDetector && (item.value == null || item.value === '--' || item.value === 'CLEAR'))
-            item.value = 'No Contact'
-        })
         items.value = data
         nextId = Math.max(...data.map(i => i.id), 0) + 1
 
-        // Register all sensors with the backend so the canvas→DB ID mapping is
-        // cached in SensorSimulationService (needed for readings batch writes).
+        // Register all sensors with the backend so the canvas to DB ID mapping is
+        // set. That way we can update the sensors with the correct values.
         for (const item of items.value.filter(i => i.type === 'sensor')) {
           if (item.connection === DRIVERS.Simulated)
             await registerSimulatedSensor(item)
@@ -132,32 +122,37 @@
             await registerRealSensor(item)
         }
       }
-    } catch {
-      // Backend unreachable — start with empty canvas
+    } catch (e) {
+      addLog(`Layout load failed. Is the backend running?\n ${e.message}`, LOG_LEVELS.Warning)
     }
   }
 
   // Register a simulated sensor in the backend SensorSimulationService.
-  // On success, syncs local tile state from the backend's current value.
+  // On success, syncs state from the backend's value.
   async function registerSimulatedSensor(item) {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/simulate/register`, {
+      const response = await fetch(`${BACKEND_URL}/api/simulate/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ canvasId: item.id, name: item.name, driver: item.driver }),
       })
-      if (!res.ok) return
-      const data = await res.json()
+      if (!response.ok) {
+        addLog(`Simulated sensor registration failed for "${item.name}" (HTTP ${response.status})`, LOG_LEVELS.Warning)
+        return
+      }
+
+      const data = await response.json()
       if (item.driver === DRIVERS.Relay)
-        item.relayState = data.state       // 'on' | 'off'
+        item.relayState = data.state 
 
       if (item.driver === DRIVERS.CollisionDetector)
-        item.value = data.stateLabel  // 'TRIGGERED' | 'CLEAR'
-    } catch { /* backend unreachable — local state stands */ }
+        item.value = data.stateLabel
+    } catch (e) {
+      addLog(`Simulated sensor registration failed for "${item.name}": ${e.message}`, LOG_LEVELS.Warning)
+    }
   }
 
-  // Register a real (non-simulated) sensor so a Sensor DB row exists and the
-  // canvas→DB ID mapping is cached. Does not create simulation state.
+  // Register a non-simulated sensor
   async function registerRealSensor(item) {
     try {
       await fetch(`${BACKEND_URL}/api/sensors/register-canvas`, {
@@ -165,12 +160,12 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ canvasId: item.id, name: item.name, driver: item.driver }),
       })
-    } catch 
-    { 
-      /* backend unreachable — will retry on next load */ 
+    } catch (e) {
+      addLog(`Sensor registration failed for "${item.name}": ${e.message}`, LOG_LEVELS.Warning)
     }
 
     // For collision detectors, also tell the Pi to start monitoring the GPIO pin.
+    // I hope I can get rid of this, I need to ponder on how the PI is setup to avoid another call.
     if (item.driver === DRIVERS.CollisionDetector && item.pin != null) {
       const deviceId = resolveDeviceId(item.connection)
       if (deviceId !== null) {
@@ -180,18 +175,18 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ pin: item.pin, canvasId: item.id }),
           })
-        } catch 
-        { 
-          /* Pi offline — will retry on next layout load */ 
+        } catch (e) {
+          addLog(`DI monitor setup failed for "${item.name}": ${e.message}`, LOG_LEVELS.Warning)
         }
       }
     }
   }
 
   async function saveLayout() {
-    if (!authToken?.value) return
+    if (!authToken?.value) 
+      return
     try {
-      const res = await fetch(`${BACKEND_URL}/api/layout`, {
+      const response = await fetch(`${BACKEND_URL}/api/layout`, {
         method:  'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -199,14 +194,15 @@
         },
         body: JSON.stringify(items.value),
       })
-      if (!res.ok) 
-        addLog(`Layout save failed (HTTP ${res.status})`, 'Warning')
+      if (!response.ok) 
+        addLog(`Layout save failed (HTTP ${response.status})`, LOG_LEVELS.Warning)
 
-    } catch (err) {
-      addLog(`Layout save failed: ${err.message}`, 'Warning')
+    } catch (e) {
+      addLog(`Layout save failed: ${e.message}`, LOG_LEVELS.Warning)
     }
   }
 
+  // Auto change the color of the text when the rectangle color is changed. Try to get the text to be readable.
   function rectTextColor(hex) {
     if (!hex) 
       return '#fff'
@@ -246,27 +242,46 @@
 
   async function confirmAddSensor({ name, connection, driver, pin }) {
     const id = nextId++
-    const extra =
-      driver === DRIVERS.Relay             ? { relayState: 'off' }             :
-      driver === DRIVERS.CollisionDetector ? { value: 'No Contact', unit: '' } :
-                                        { value: '--',         unit: '' }
-    const newItem = { id, type: 'sensor', name, connection, driver, pin: pin ?? null, x: 80, y: 80, color: '#1e90ff', textColor: null, ...extra }
+    const driverDefaults = DRIVER_DEFAULTS[driver] ?? { value: '--', unit: '' }
+    const newItem = {
+      id, 
+      type: 'sensor', 
+      name, 
+      connection, 
+      driver,
+      pin: pin ?? null, 
+      x: 80, 
+      y: 80,
+      color: '#1e90ff', 
+      textColor: null,
+      ...driverDefaults,
+    }
     items.value.push(newItem)
     showAddSensorDialog.value = false
     isEditMode.value = true
     saveLayout()
 
     // Register the new sensor immediately so the backend DB mapping is ready
-    if (connection === DRIVERS.Simulated) await registerSimulatedSensor(newItem)
-    else                                  await registerRealSensor(newItem)
+    if (connection === DRIVERS.Simulated) 
+      await registerSimulatedSensor(newItem)
+    else
+      await registerRealSensor(newItem)
   }
 
   function addRectangle() {
     const id = nextId++
     items.value.push({
-      id, type: 'rect', name: 'New Zone',
-      x: 80, y: 80, w: 200, h: 150,
-      color: '#1e90ff', textColor: null, fontSize: 16, fontWeight: 'normal', textAlign: 'left',
+      id, type: 'rect', 
+      name: 'New Zone',
+      x: 80, 
+      y: 80, 
+      w: 200, 
+      h: 150,
+      color: '#1e90ff', 
+      textColor: null, 
+      fontSize: 16, 
+      fontWeight: 'normal', 
+      textAlign: 'left',
     })
     showAddMenu.value = false
     isEditMode.value = true
@@ -275,7 +290,7 @@
 
   function deleteSelected() {
     if (selectedId.value !== null) {
-      items.value      = items.value.filter(s => s.id !== selectedId.value)
+      items.value = items.value.filter(s => s.id !== selectedId.value)
       selectedId.value = null
       saveLayout()
     }
@@ -288,105 +303,162 @@
   }
 
   function setAlign(align) {
-    if (selectedItem.value) selectedItem.value.textAlign = align
+    if (selectedItem.value) 
+      selectedItem.value.textAlign = align
   }
 
+  // limiting the font size.
   function clampFontSize(val) {
     return Math.max(8, Math.min(72, Number(val) || 13))
   }
 
-  // Drag to move — uses wrapper-relative coords + auto-scroll near edges
+  // Drag to move, this is the logic for moving things on the screen.
   function startDrag(item, e) {
-    if (!isEditMode.value) return
+    if (!isEditMode.value) 
+      return
+
+    // We don't want the browser to highlight text accidentally. We just want to move the object.
     e.preventDefault()
+
+
     selectedId.value = item.id
 
+    // Get the selected objects div data. (DOM Object)
     const wrapper = wrapperRef.value
+
+    // Getting Bottom, Height, Left, right, top, width, x and y for the selected object.
     const r0 = wrapper.getBoundingClientRect()
-    const ox = (e.clientX - r0.left + wrapper.scrollLeft) - item.x
-    const oy = (e.clientY - r0.top  + wrapper.scrollTop)  - item.y
+
+    // Get where the user clicked on the object.
+    const offsetX = (e.clientX - r0.left + wrapper.scrollLeft) - item.x
+
+    // Get where the user clicked on the object.
+    const offsetY = (e.clientY - r0.top  + wrapper.scrollTop)  - item.y
 
     // Pin canvas size so dragging up/left can't shrink it and clamp scrollTop mid-drag
     canvasMinW.value = parseInt(canvasStyle.value.width)  || 0
     canvasMinH.value = parseInt(canvasStyle.value.height) || 0
 
     const EDGE = 40, SPEED = 4
+
+    // Get the position of the x y position of the mouse.
     let mx = e.clientX, my = e.clientY, rafId
 
     const frame = () => {
-      const r = wrapper.getBoundingClientRect()
-      const rx = mx - r.left, ry = my - r.top
-      if (rx < EDGE)                 wrapper.scrollLeft = Math.max(0, wrapper.scrollLeft - SPEED)
-      else if (rx > r.width  - EDGE) wrapper.scrollLeft += SPEED
-      if (ry < EDGE)                 wrapper.scrollTop  = Math.max(0, wrapper.scrollTop  - SPEED)
-      else if (ry > r.height - EDGE) wrapper.scrollTop  += SPEED
+      const rx = mx - r0.left
+      const ry = my - r0.top
+
+      // If our mouse x location is at the edge, then start scrolling in that moving direction.
+      if (rx < EDGE)
+        wrapper.scrollLeft = Math.max(0, wrapper.scrollLeft - SPEED)
+      else if (rx > r0.width  - EDGE)
+        wrapper.scrollLeft += SPEED
+      
+      // If our mouse y location is at the edge, then start scrolling in that moving direction.
+      if (ry < EDGE)
+        wrapper.scrollTop = Math.max(0, wrapper.scrollTop  - SPEED)
+      else if (ry > r0.height - EDGE)
+        wrapper.scrollTop += SPEED
+
       // Clamp to wrapper min edges so mouse exiting above/left doesn't snap item to 0
-      const cx = Math.max(r.left, mx)
-      const cy = Math.max(r.top,  my)
-      item.x = Math.max(0, cx - r.left + wrapper.scrollLeft - ox)
-      item.y = Math.max(0, cy - r.top  + wrapper.scrollTop  - oy)
+      // const cx = Math.max(r0.left, mx)
+      // const cy = Math.max(r0.top,  my)
+      // item.x = Math.max(0, cx - r0.left + wrapper.scrollLeft - offsetX)
+      // item.y = Math.max(0, cy - r0.top  + wrapper.scrollTop  - offsetY)
+
+      // Set the location of the selected item to be moving with the mouse.
+      item.x = Math.max(0, mx - r0.left + wrapper.scrollLeft - offsetX)
+      item.y = Math.max(0, my - r0.top  + wrapper.scrollTop  - offsetY)
+
+      // Keep looking through this until the user lets go of left click.
       rafId = requestAnimationFrame(frame)
     }
 
-    const onMove = ev => { mx = ev.clientX; my = ev.clientY }
-    const onUp   = () => {
+    // On mouse move update the mx and my variables so the object will actually move.
+    const onMove = ev => { 
+      mx = ev.clientX; 
+      my = ev.clientY 
+    }
+
+    // stuff to do when the move have finished.
+    const onUp = () => {
       cancelAnimationFrame(rafId)
       canvasMinW.value = 0
       canvasMinH.value = 0
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+
+      // After we are done moving save the layout in the back end so if someone refreshes the page the move will have been saved.
       saveLayout()
     }
+
+    // Kick off the first frame request and then add the event listeners.
     rafId = requestAnimationFrame(frame)
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onUp)
   }
 
-  // Resize grip
+  // Resize 
   function startResize(item, e) {
-    e.preventDefault(); e.stopPropagation()
-    const sx = e.clientX, sy = e.clientY, sw = item.w, sh = item.h
-    const move = ev => { item.w = Math.max(100, sw + ev.clientX - sx); item.h = Math.max(50, sh + ev.clientY - sy) }
-    const up   = ()  => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); saveLayout() }
+    e.preventDefault()
+    e.stopPropagation()
+
+    // Store the start values and item dimensions as we aren't moving the object, so we want a start position to anchor it.
+    const x = e.clientX 
+    const y = e.clientY
+    const w = item.w
+    const h = item.h
+    
+    // Expand the rectangle :).
+    const move = ev => { 
+      item.w = Math.max(100, w + ev.clientX - x)
+      item.h = Math.max(50, h + ev.clientY - y) 
+    }
+    const up = () => { 
+      window.removeEventListener('mousemove', move); 
+      window.removeEventListener('mouseup', up); saveLayout() 
+    }
+
     window.addEventListener('mousemove', move)
     window.addEventListener('mouseup', up)
   }
 
-  // Color picker
   function pickColor(color) {
-    if (selectedItem.value && selectedHasColor.value) selectedItem.value.color = color
+    if (selectedItem.value && selectedHasColor.value) 
+      selectedItem.value.color = color
   }
 
   function confirmColor() {
-    originalColor.value   = null
+    originalColor.value = null
     showColorPicker.value = false
   }
 
   function closeColorPicker() {
     if (originalColor.value && selectedItem.value && selectedHasColor.value)
       selectedItem.value.color = originalColor.value
-    originalColor.value   = null
+
+    originalColor.value = null
     showColorPicker.value = false
   }
 
   function openColorPicker() {
-    originalColor.value   = selectedItem.value?.color ?? null
+    originalColor.value = selectedItem.value?.color ?? null
     showColorPicker.value = true
   }
 
-  // Text color picker
   function openTextColorPicker() {
-    originalTextColor.value   = selectedItem.value?.textColor ?? null   // snapshot for Cancel
+    originalTextColor.value = selectedItem.value?.textColor ?? null
     showTextColorPicker.value = true
-    showColorPicker.value     = false   // close bg picker if open
+    showColorPicker.value = false
   }
 
   function pickTextColor(color) {
-    if (selectedItem.value && selectedHasColor.value) selectedItem.value.textColor = color
+    if (selectedItem.value && selectedHasColor.value) 
+      selectedItem.value.textColor = color
   }
 
   function confirmTextColor() {
-    originalTextColor.value   = null
+    originalTextColor.value = null
     showTextColorPicker.value = false
   }
 
@@ -394,13 +466,15 @@
   function closeTextColorPicker(revert = false) {
     if (revert && selectedItem.value && selectedHasColor.value)
       selectedItem.value.textColor = originalTextColor.value
-    originalTextColor.value   = null
+
+    originalTextColor.value = null
     showTextColorPicker.value = false
   }
 
   function resetTextColorToAuto() {
-    if (selectedItem.value) selectedItem.value.textColor = null
-    originalTextColor.value   = null
+    if (selectedItem.value) 
+      selectedItem.value.textColor = null
+    originalTextColor.value = null
     showTextColorPicker.value = false
   }
 
@@ -408,121 +482,134 @@
   // then restarts the C# backend (which auto-restarts when running as a Windows service).
   async function reconnectAllDevices() {
     reconnecting.value = true
-    addLog('Reconnect All: restarting Pi agent(s)…', 'Info')
+    addLog('Reconnect All: restarting Pi agent(s)…', LOG_LEVELS.Info)
 
     const ipDevices = (devices.value ?? []).filter(d => d.type === DEVICE_TYPES.Ip)
     for (const d of ipDevices) {
-      const ip   = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
+      const ip = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
       const port = d.properties.find(p => p.name === DEVICE_PROPS.PortNumber)?.value
-      if (!ip || !port) continue
+      
+      if (!ip || !port) 
+        continue
+
       try {
         await fetch(`http://${ip}:${port}/restart`, { method: 'POST' })
-        addLog(`Reconnect All: restart sent to Pi at ${ip}:${port}`, 'Info')
+        addLog(`Reconnect All: restart sent to Pi at ${ip}:${port}`, LOG_LEVELS.Info)
       } catch {
-        addLog(`Reconnect All: could not reach Pi at ${ip}:${port}`, 'Warning')
+        addLog(`Reconnect All: could not reach Pi at ${ip}:${port}`, LOG_LEVELS.Warning)
       }
     }
 
-    addLog('Reconnect All: restarting C# backend…', 'Info')
+    addLog('Reconnect All: restarting C# backend…', LOG_LEVELS.Info)
     try {
       await fetch(`${BACKEND_URL}/api/admin/restart`, {
-        method:  'POST',
+        method: 'POST',
         headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
       })
-    } catch { /* expected — backend closes the connection as it exits */ }
+    } catch (e) { 
+      addLog(`Error trying to restart the backend... ${e}`, LOG_LEVELS.Error)
+     }
 
-    // Backend is restarting — SignalR will reconnect on its own.
-    // Reset local flag after a short delay so the button re-enables once reconnected.
+    // Set a timeout for the backend restarting.
     setTimeout(() => { reconnecting.value = false }, 8000)
   }
 
-  // Relay control — resolve connection string to a numeric device id
+
   function resolveDeviceId(connection) {
-    if (!connection || connection === DRIVERS.Simulated) return null
+    if (!connection || connection === DRIVERS.Simulated) 
+      return null
     for (const d of devices.value) {
       if (d.type === DEVICE_TYPES.Ip) {
         const ip = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
-        if (ip === connection) return d.id
+        if (ip === connection) 
+          return d.id
       }
     }
     return null
   }
 
   async function handleRelayChange(item, state) {
-    const who = currentUser?.value?.username ?? 'Unknown'
-    addLog(`"${item.name}" turned ${state.toUpperCase()} by ${who}`, 'Info')
-    item.relayState = state  // optimistic local update
 
+    // Show to the user that the relay was successful... SignalR will update it if it wasn't a success.
+    item.relayState = state
+
+    // Check to see if we are interacting with a simulated device or a real hardware device.
     if (item.connection === DRIVERS.Simulated) {
-      // Route to backend simulation service
       try {
         await fetch(`${BACKEND_URL}/api/simulate/relay/${item.id}/${state}`, {
-          method:  'POST',
+          method: 'POST',
           headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
         })
-      } catch (err) {
-        addLog(`Simulated relay command failed: ${err.message}`, 'Warning')
+      } catch (e) {
+        addLog(`Simulated relay command failed: ${e.message}`, LOG_LEVELS.Warning)
       }
     } else {
-      // Route to real hardware via device proxy endpoint
       const deviceId = resolveDeviceId(item.connection)
       if (deviceId !== null) {
         if (item.pin == null) {
-          addLog(`Relay "${item.name}" has no pin configured — edit and re-add it`, 'Warning')
+          addLog(`Relay "${item.name}" has no pin configured. Please delete and re-add the relay with an assosiated pin this time.`, 
+          LOG_LEVELS.Warning)
         } else {
+
           try {
             await fetch(`${BACKEND_URL}/api/devices/${deviceId}/do`, {
-              method:  'POST',
+              method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body:    JSON.stringify({ pin: item.pin, state: state === 'on', canvasId: item.id }),
+              body: JSON.stringify({ pin: item.pin, state: state === 'on', canvasId: item.id }),
             })
-          } catch (err) {
-            addLog(`Relay command failed: ${err.message}`, 'Warning')
+
+          } catch (e) {
+            addLog(`Relay command failed: ${e.message}`, LOG_LEVELS.Warning)
           }
         }
       }
     }
-    saveLayout()
+    addLog(`"${item.name}" turned ${state.toUpperCase()} by ${currentUser?.value?.username}`, LOG_LEVELS.Info)
   }
 
   // Simulated collision detector toggle — calls backend to keep state authoritative there
   async function toggleCollisionSim(item) {
+
     const nowTriggered = item.value !== 'Collision!'
-    const endpoint     = nowTriggered ? 'trigger' : 'release'
-    item.value = nowTriggered ? 'Collision!' : 'No Contact'  // optimistic update
+    const endpoint = nowTriggered ? 'trigger' : 'release'
+
+    // Show to the user that the Collision Detector was successful... SignalR will update it if it wasn't a success.
+    item.value = nowTriggered ? 'Collision!' : 'No Contact'
 
     try {
       await fetch(`${BACKEND_URL}/api/simulate/di/${item.id}/${endpoint}`, {
         method:  'POST',
         headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
       })
-    } catch (err) {
-      addLog(`Simulated DI command failed: ${err.message}`, 'Warning')
+    } catch (e) {
+      addLog(`Simulated DI command failed: ${e.message}`, LOG_LEVELS.Warning)
     }
-    saveLayout()
   }
 
-  // Canvas click — deselects and closes menus, but not if the mouse was
-  // pressed down in the toolbar (user was dragging a text selection).
+  // Canvas click, deselect and closes menus, but not if the mouse is pressed down in the toolbar
   function onCanvasClick(e) {
     if (mouseDownInToolbar) {
       mouseDownInToolbar = false
       return
     }
-    if (!e.target.closest('.dropdown-wrapper'))       showAddMenu.value = false
-    if (!e.target.closest('.color-picker-wrap'))      closeColorPicker()
-    if (!e.target.closest('.text-color-picker-wrap')) closeTextColorPicker()
-    if (!e.target.closest('.sensor-tile') && !e.target.closest('.rect-tile')) selectedId.value = null
+    if (!e.target.closest('.dropdown-wrapper'))
+      showAddMenu.value = false
+
+    if (!e.target.closest('.color-picker-wrap'))
+      closeColorPicker()
+
+    if (!e.target.closest('.text-color-picker-wrap')) 
+      closeTextColorPicker()
+
+    if (!e.target.closest('.sensor-tile') && !e.target.closest('.rect-tile')) 
+      selectedId.value = null
   }
 </script>
 
 <template>
   <div class="device-layout" @click="onCanvasClick">
 
-    <div
-      class="view-toolbar"
-      @mousedown="mouseDownInToolbar = true"
-    >
+    <div class="view-toolbar" @mousedown="mouseDownInToolbar = true">
       <!-- ── Non-edit mode ── -->
       <template v-if="!isEditMode">
         <button v-if="canOperate" class="toolbar-btn" @click.stop="startEdit"><font-awesome-icon icon="pen" style="color: #e6a817" /> Edit</button>
@@ -540,7 +627,7 @@
         <button v-if="selectedId !== null" class="toolbar-btn toolbar-btn-danger" @click="deleteSelected"><font-awesome-icon icon="trash" /> Delete</button>
         <button class="toolbar-btn active" @click="doneEdit"><font-awesome-icon icon="check" style="color: #4caf50" /> Done Editing</button>
 
-        <!-- Background + Text color pickers — available for both sensors and rects -->
+        <!-- Background and text color pickers -->
         <template v-if="selectedHasColor">
           <div class="toolbar-sep" />
 
@@ -552,13 +639,9 @@
             </button>
             <div v-if="showColorPicker" class="color-picker-popup">
               <div class="color-swatches">
-                <button
-                  v-for="c in PRESET_COLORS" :key="c"
-                  class="color-swatch"
-                  :class="{ active: selectedItem.color === c }"
+                <button v-for="c in PRESET_COLORS" :key="c" class="color-swatch" :class="{ active: selectedItem.color === c }"
                   :style="{ background: c, borderColor: c === '#ffffff' ? '#ccc' : 'transparent' }"
-                  @click="pickColor(c)"
-                />
+                  @click="pickColor(c)"/>
               </div>
               <div class="color-picker-footer">
                 <button class="btn btn-primary" style="font-size:12px;padding:4px 14px" @click="confirmColor">OK</button>
@@ -575,13 +658,9 @@
             </button>
             <div v-if="showTextColorPicker" class="color-picker-popup">
               <div class="color-swatches">
-                <button
-                  v-for="c in PRESET_COLORS" :key="c"
-                  class="color-swatch"
-                  :class="{ active: selectedItem.textColor === c }"
+                <button v-for="c in PRESET_COLORS" :key="c" class="color-swatch" :class="{ active: selectedItem.textColor === c }"
                   :style="{ background: c, borderColor: c === '#ffffff' ? '#ccc' : 'transparent' }"
-                  @click="pickTextColor(c)"
-                />
+                  @click="pickTextColor(c)"/>
               </div>
               <div class="color-picker-footer">
                 <button class="btn btn-primary" style="font-size:12px;padding:4px 14px" @click="confirmTextColor">OK</button>
@@ -592,46 +671,33 @@
           </div>
         </template>
 
-        <!-- Text formatting — rects only -->
+        <!-- Text formatting... rectangles only -->
         <template v-if="selectedIsRect">
           <div class="toolbar-sep" />
 
-          <!-- Label -->
-          <input
-            type="text"
-            class="toolbar-text-input"
-            v-model="selectedItem.name"
-            placeholder="Label"
-            @click.stop
-          />
+          <input type="text" class="toolbar-text-input" v-model="selectedItem.name" placeholder="Label" @click.stop/>
 
           <div class="toolbar-sep" />
 
           <!-- Bold -->
-          <button
-            class="toolbar-btn toolbar-bold-btn"
-            :class="{ active: selectedItem.fontWeight === 'bold' }"
-            title="Bold"
-            @click.stop="toggleBold"
-          >B</button>
+          <button class="toolbar-btn toolbar-bold-btn" :class="{ active: selectedItem.fontWeight === 'bold' }" title="Bold"
+            @click.stop="toggleBold">B</button>
 
           <!-- Font size -->
-          <input
-            type="number"
-            class="toolbar-fontsize-input"
-            :value="selectedItem.fontSize"
-            min="8" max="72"
-            @change.stop="selectedItem.fontSize = clampFontSize($event.target.value)"
-            @click.stop
-            title="Font size"
-          />
-
+          <input type="number" class="toolbar-fontsize-input" :value="selectedItem.fontSize" min="8" max="72"
+            @change.stop="selectedItem.fontSize = clampFontSize($event.target.value)" @click.stop title="Font size"/>
           <div class="toolbar-sep" />
 
           <!-- Alignment -->
-          <button class="toolbar-btn toolbar-align-btn" :class="{ active: selectedItem.textAlign === 'left' }"   title="Align left"   @click.stop="setAlign('left')"  ><font-awesome-icon icon="align-left"   style="color: var(--accent)" /></button>
-          <button class="toolbar-btn toolbar-align-btn" :class="{ active: selectedItem.textAlign === 'center' }" title="Center"       @click.stop="setAlign('center')"><font-awesome-icon icon="align-center" style="color: var(--accent)" /></button>
-          <button class="toolbar-btn toolbar-align-btn" :class="{ active: selectedItem.textAlign === 'right' }"  title="Align right"  @click.stop="setAlign('right')" ><font-awesome-icon icon="align-right"  style="color: var(--accent)" /></button>
+          <button class="toolbar-btn toolbar-align-btn" :class="{ active: selectedItem.textAlign === 'left' }" 
+            title="Align left" @click.stop="setAlign('left')"><font-awesome-icon icon="align-left" style="color: var(--accent)" />
+          </button>
+          <button class="toolbar-btn toolbar-align-btn" :class="{ active: selectedItem.textAlign === 'center' }" 
+            title="Center" @click.stop="setAlign('center')"><font-awesome-icon icon="align-center" style="color: var(--accent)" />
+          </button>
+          <button class="toolbar-btn toolbar-align-btn" :class="{ active: selectedItem.textAlign === 'right' }" 
+            title="Align right" @click.stop="setAlign('right')" ><font-awesome-icon icon="align-right" style="color: var(--accent)" />
+          </button>
         </template>
       </template>
     </div>
@@ -641,50 +707,29 @@
         <template v-for="item in items" :key="item.id">
 
           <!-- Sensor tile -->
-          <div
-            v-if="item.type === 'sensor'"
-            class="sensor-tile"
-            :class="{ editable: isEditMode, selected: selectedId === item.id }"
+          <div v-if="item.type === 'sensor'" class="sensor-tile" :class="{ editable: isEditMode, selected: selectedId === item.id }"
             :style="{
-              left:       item.x + 'px',
-              top:        item.y + 'px',
+              left: item.x + 'px',
+              top: item.y + 'px',
               background: item.color || 'var(--bg-sensor-tile)',
             }"
             @mousedown="startDrag(item, $event)"
-            @click.stop="isEditMode && (selectedId = item.id)"
-          >
+            @click.stop="isEditMode && (selectedId = item.id)">
             <div class="sensor-tile-name" :style="{ color: item.textColor || null }">{{ item.name }}</div>
 
             <!-- Relay: ON / OFF radio buttons -->
             <template v-if="item.driver === DRIVERS.Relay">
               <div class="relay-controls" @mousedown.stop @click.stop>
-                <label
-                  class="relay-label"
-                  :class="{ 'relay-disabled': !canOperate || isRecipeRelay(item) }"
-                  :style="{ color: item.textColor || null }"
-                >
-                  <input
-                    type="radio"
-                    :name="'relay-' + item.id"
-                    value="on"
-                    :checked="item.relayState === 'on'"
-                    :disabled="!canOperate || isRecipeRelay(item)"
-                    @change="handleRelayChange(item, 'on')"
-                  /> ON
+                <label class="relay-label" :class="{ 'relay-disabled': !canOperate || isRecipeRelay(item) }"
+                :style="{ color: item.textColor || null }">
+                  <input type="radio" :name="'relay-' + item.id" value="on" :checked="item.relayState === 'on'" 
+                  :disabled="!canOperate || isRecipeRelay(item)" @change="handleRelayChange(item, 'on')"/> ON
                 </label>
-                <label
-                  class="relay-label"
-                  :class="{ 'relay-disabled': !canOperate || isRecipeRelay(item) }"
-                  :style="{ color: item.textColor || null }"
-                >
-                  <input
-                    type="radio"
-                    :name="'relay-' + item.id"
-                    value="off"
-                    :checked="item.relayState !== 'on'"
-                    :disabled="!canOperate || isRecipeRelay(item)"
-                    @change="handleRelayChange(item, 'off')"
-                  /> OFF
+                
+                <label class="relay-label" :class="{ 'relay-disabled': !canOperate || isRecipeRelay(item) }" :style="{ color: item.textColor || null }">
+                  <input type="radio" :name="'relay-' + item.id" value="off" :checked="item.relayState !== 'on'" :disabled="!canOperate || isRecipeRelay(item)"
+                    @change="handleRelayChange(item, 'off')"/> 
+                    OFF
                 </label>
               </div>
               <div v-if="item.connection === DRIVERS.Simulated" class="sim-badge">SIM</div>
@@ -692,24 +737,17 @@
 
             <!-- Collision Detector -->
             <template v-else-if="item.driver === DRIVERS.CollisionDetector">
-              <div
-                class="collision-state"
-                :style="{
-                  color: item.textColor ||
-                    (item.value === 'Collision!' ? '#ff5252' : '#69f0ae')
-                }"
-              >
+              <div class="collision-state" :style="{ color: item.textColor || (item.value === 'Collision!' ? '#ff5252' : '#69f0ae')}">
                 <span class="collision-dot" />
                 {{ item.value ?? 'No Contact' }}
               </div>
+
               <!-- Simulate trigger/release — only for Simulated connection + operators -->
               <button
-                v-if="item.connection === DRIVERS.Simulated && canOperate"
-                class="sim-trigger-btn"
-                :class="{ 'sim-trigger-btn--active': item.value === 'Collision!' }"
-                @mousedown.stop
-                @click.stop="toggleCollisionSim(item)"
-              >{{ item.value === 'Collision!' ? 'Release' : 'Trigger' }}</button>
+                v-if="item.connection === DRIVERS.Simulated && canOperate" class="sim-trigger-btn"
+                :class="{ 'sim-trigger-btn--active': item.value === 'Collision!' }" @mousedown.stop @click.stop="toggleCollisionSim(item)">
+                {{ item.value === 'Collision!' ? 'Release' : 'Trigger' }}
+              </button>
               <div v-if="item.connection === DRIVERS.Simulated" class="sim-badge">SIM</div>
             </template>
 
@@ -721,10 +759,7 @@
           </div>
 
           <!-- Rectangle tile -->
-          <div
-            v-else-if="item.type === 'rect'"
-            class="rect-tile"
-            :class="{ editable: isEditMode, selected: selectedId === item.id }"
+          <div v-else-if="item.type === 'rect'" class="rect-tile" :class="{ editable: isEditMode, selected: selectedId === item.id }"
             :style="{
               left: item.x + 'px', top: item.y + 'px',
               width: item.w + 'px', height: item.h + 'px',
@@ -732,46 +767,46 @@
               color: rectTextColor(item.color),
             }"
             @mousedown="startDrag(item, $event)"
-            @click="selectRect(item, $event)"
-          >
-            <span
-              class="rect-tile-name"
+            @click="selectRect(item, $event)">
+            <span class="rect-tile-name" 
               :style="{
-                fontSize:   item.fontSize + 'px',
+                fontSize: item.fontSize + 'px',
                 fontWeight: item.fontWeight,
-                textAlign:  item.textAlign,
-                color:      item.textColor || rectTextColor(item.color),
-              }"
-            >{{ item.name }}</span>
-            <button
-              v-if="isEditMode"
-              class="rect-resize-grip"
-              :style="{ color: rectTextColor(item.color) }"
-              @mousedown.stop="startResize(item, $event)"
-            >◢</button>
+                textAlign: item.textAlign,
+                color: item.textColor || rectTextColor(item.color),
+              }">
+              {{ item.name }}</span>
+
+            <button v-if="isEditMode" class="rect-resize-grip" :style="{ color: rectTextColor(item.color) }" @mousedown.stop="startResize(item, $event)">
+              ◢
+            </button>
           </div>
 
         </template>
       </div>
     </div>
 
-    <AddSensorDialog
-      v-if="showAddSensorDialog"
-      @add="confirmAddSensor"
-      @close="showAddSensorDialog = false"
-    />
+    <AddSensorDialog v-if="showAddSensorDialog" @add="confirmAddSensor" @close="showAddSensorDialog = false"/>
 
     <button v-if="canOperate" class="reconnect-all-btn" :disabled="reconnecting" @click.stop="reconnectAllDevices">
-      <font-awesome-icon icon="rotate-right" style="color: var(--accent)" /> {{ reconnecting ? 'Reconnecting…' : 'Reconnect All Devices' }}
+      <font-awesome-icon icon="rotate-right" style="color: var(--accent)"/> {{ reconnecting ? 'Reconnecting…' : 'Reconnect All Devices' }}
     </button>
   </div>
 </template>
 
 <style scoped>
-  .rect-tile            { z-index: 1; }
-  .sensor-tile          { z-index: 2; }
-  .sensor-tile.selected { outline: 2px solid var(--accent); }
-  .rect-tile.selected   { outline: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.4); }
+  .rect-tile {
+     z-index: 1; 
+    }
+  .sensor-tile { 
+    z-index: 2; 
+  }
+  .sensor-tile.selected { 
+    outline: 2px solid var(--accent); 
+  }
+  .rect-tile.selected { 
+    outline: 3px solid #fff; boffsetX-shadow: 0 0 0 1px rgba(0,0,0,0.4); 
+  }
 
   .reconnect-all-btn {
     position: absolute;
@@ -786,11 +821,12 @@
     border-radius: 4px;
     color: var(--text-primary);
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+    boffsetX-shadow: 0 2px 6px rgba(0,0,0,0.12);
   }
-  .reconnect-all-btn:hover { background: var(--bg-ribbon-btn-hover); }
+  .reconnect-all-btn:hover { 
+    background: var(--bg-ribbon-btn-hover); 
+  }
 
-  /* ── Relay tile controls ── */
   .relay-controls {
     display: flex;
     gap: 14px;
@@ -825,7 +861,6 @@
     cursor: not-allowed;
   }
 
-  /* ── Collision Detector tile ── */
   .collision-state {
     display: flex;
     align-items: center;
@@ -845,7 +880,6 @@
     flex-shrink: 0;
   }
 
-  /* Trigger / Release simulation button */
   .sim-trigger-btn {
     margin-top: 6px;
     padding: 2px 9px;
@@ -859,11 +893,16 @@
     cursor: pointer;
     transition: background 0.12s;
   }
-  .sim-trigger-btn:hover                { background: rgba(255, 255, 255, 0.20); }
-  .sim-trigger-btn--active              { border-color: rgba(255, 82, 82, 0.60); }
-  .sim-trigger-btn--active:hover        { background: rgba(255, 82, 82, 0.18); }
+  .sim-trigger-btn:hover {
+     background: rgba(255, 255, 255, 0.20); 
+    }
+  .sim-trigger-btn--active {
+     border-color: rgba(255, 82, 82, 0.60); 
+    }
+  .sim-trigger-btn--active:hover {
+     background: rgba(255, 82, 82, 0.18); 
+    }
 
-  /* ── SIM badge — shown on any simulated sensor ── */
   .sim-badge {
     margin-top: 5px;
     font-size: 9px;
@@ -873,13 +912,6 @@
     text-transform: uppercase;
   }
 
-  /*
-   * ==========================================
-   * Device canvas
-   * ==========================================
-   */
-
-  /* Outer container for the device canvas view — fills the main area. */
   .device-layout {
     display: flex;
     flex-direction: column;
@@ -888,8 +920,6 @@
     position: relative;
   }
 
-  /* Scrollable viewport that wraps the canvas.
-     Overflow:auto lets both axes scroll when tiles exceed the visible area. */
   .device-canvas-wrapper {
     flex: 1;
     overflow: auto;
@@ -897,15 +927,12 @@
     background: var(--bg-canvas);
   }
 
-  /* The actual canvas that tiles are absolutely positioned on.
-     Size is driven dynamically from the script based on tile positions. */
   .device-canvas {
     position: relative;
     min-width: 100%;
     min-height: 100%;
   }
 
-  /* Sensor tile — the draggable card showing a sensor's name and live value. */
   .sensor-tile {
     position: absolute;
     width: 120px;
@@ -917,9 +944,11 @@
     font-size: 12px;
     cursor: default;
   }
-  /* In edit mode the cursor becomes a move cursor and the border highlights. */
-  .sensor-tile.editable { cursor: move; border-color: var(--accent); }
-  /* Sensor name at the top of the tile. */
+
+  .sensor-tile.editable { 
+    cursor: move; border-color: var(--accent); 
+  }
+
   .sensor-tile-name {
     font-weight: 600;
     color: var(--text-primary);
@@ -929,12 +958,15 @@
     width: 100%;
     text-align: center;
   }
-  /* Large live sensor reading value. */
-  .sensor-tile-value { color: var(--accent); font-size: 15px; font-weight: 700; margin-top: 4px; }
-  /* Small unit label (e.g. "°C", "psi") below the value. */
-  .sensor-tile-unit  { font-size: 10px; color: var(--text-secondary); }
 
-  /* Rectangle/zone tile — a freely resizable colored overlay on the canvas. */
+  .sensor-tile-value { 
+    color: var(--accent); font-size: 15px; font-weight: 700; margin-top: 4px; 
+  }
+
+  .sensor-tile-unit  { 
+    font-size: 10px; color: var(--text-secondary); 
+  }
+
   .rect-tile {
     position: absolute;
     border: 1px solid rgba(0, 0, 0, 0.25);
@@ -944,10 +976,11 @@
     min-width: 100px;
     min-height: 50px;
   }
-  /* Move cursor in edit mode. */
-  .rect-tile.editable { cursor: move; }
 
-  /* Label text inside a rectangle tile. */
+  .rect-tile.editable { 
+    cursor: move; 
+  }
+
   .rect-tile-name {
     display: block;
     padding: 6px 8px 4px;
@@ -955,7 +988,6 @@
     font-weight: 600;
   }
 
-  /* Resize handle anchored to the bottom-right corner of a rectangle tile. */
   .rect-resize-grip {
     position: absolute;
     bottom: 2px;
@@ -971,22 +1003,19 @@
     cursor: se-resize;
     opacity: 0.6;
   }
-  .rect-resize-grip:hover { opacity: 1; }
+  .rect-resize-grip:hover { 
+    opacity: 1; 
+  }
 
-  /*
-   * ==========================================
-   * Color picker
-   * ==========================================
-   */
-
-  /* Wrapper that positions the popup relative to the trigger button. */
   .color-picker-wrap,
-  .text-color-picker-wrap { position: relative; }
+  .text-color-picker-wrap {
+    position: relative; 
+  }
 
-  /* Trigger button that shows a color preview dot alongside the "Color" label. */
-  .color-preview-btn { display: flex; align-items: center; gap: 6px; }
+  .color-preview-btn { 
+    display: flex; align-items: center; gap: 6px; 
+  }
 
-  /* Small colored square showing the currently selected color. */
   .color-preview-dot {
     width: 14px;
     height: 14px;
@@ -995,7 +1024,6 @@
     flex-shrink: 0;
   }
 
-  /* Floating popup panel that appears below the trigger button. */
   .color-picker-popup {
     position: absolute;
     top: calc(100% + 4px);
@@ -1003,12 +1031,11 @@
     background: var(--bg-panel);
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    boffsetX-shadow: 0 4px 16px rgba(0,0,0,0.18);
     padding: 12px;
     z-index: 200;
   }
 
-  /* 8-column grid of color swatches inside the popup. */
   .color-swatches {
     display: grid;
     grid-template-columns: repeat(8, 28px);
@@ -1016,7 +1043,6 @@
     margin-bottom: 10px;
   }
 
-  /* Individual clickable color swatch square. */
   .color-swatch {
     width: 28px;
     height: 28px;
@@ -1025,28 +1051,25 @@
     cursor: pointer;
     transition: transform 0.1s;
   }
-  /* Slight scale-up on hover for visual feedback. */
-  .color-swatch:hover  { transform: scale(1.15); border-color: rgba(0,0,0,0.25); }
-  /* Accent ring around the currently selected swatch. */
-  .color-swatch.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 
-  /* OK / Cancel buttons at the bottom of the color picker popup. */
+  .color-swatch:hover  { 
+    transform: scale(1.15); border-color: rgba(0,0,0,0.25); 
+  }
+
+  .color-swatch.active { 
+    border-color: var(--accent); boffsetX-shadow: 0 0 0 2px var(--accent); 
+  }
+
   .color-picker-footer {
     display: flex;
     gap: 6px;
     justify-content: flex-end;
   }
 
-  /*
-   * ==========================================
-   * Dropdown menu
-   * ==========================================
-   */
+  .dropdown-wrapper { 
+    position: relative; 
+  }
 
-  /* Anchor for absolute-positioned dropdown panels. */
-  .dropdown-wrapper { position: relative; }
-
-  /* Floating dropdown menu panel (e.g. the "Add ▾" menu). */
   .dropdown-menu {
     position: absolute;
     top: 100%;
@@ -1054,11 +1077,11 @@
     background: var(--bg-panel);
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    boffsetX-shadow: 0 4px 12px rgba(0,0,0,0.15);
     z-index: 100;
     min-width: 120px;
   }
-  /* Full-width clickable rows inside the dropdown. */
+
   .dropdown-menu button {
     display: block;
     width: 100%;
@@ -1070,9 +1093,10 @@
     cursor: pointer;
     font-size: 12px;
   }
-  .dropdown-menu button:hover { background: var(--bg-ribbon-btn-hover); }
+  .dropdown-menu button:hover { 
+    background: var(--bg-ribbon-btn-hover); 
+  }
 
-  /* Text input embedded in the toolbar for editing a rectangle's label. */
   .toolbar-text-input {
     height: 26px;
     width: 130px;
@@ -1084,7 +1108,6 @@
     color: var(--text-primary);
   }
 
-  /* Narrow number input for font size in the toolbar. */
   .toolbar-fontsize-input {
     height: 26px;
     width: 52px;
@@ -1097,7 +1120,6 @@
     color: var(--text-primary);
   }
 
-  /* Bold formatting toggle button in the toolbar. */
   .toolbar-bold-btn {
     font-weight: 800;
     font-size: 14px;
@@ -1105,13 +1127,11 @@
     font-family: serif;
   }
 
-  /* Text alignment buttons (left / center / right) in the toolbar. */
   .toolbar-align-btn {
     min-width: 28px;
     font-size: 13px;
   }
 
-  /* Red variant for destructive actions like Delete. */
   .toolbar-btn-danger {
     color: #f44336;
     border-color: #f44336;
@@ -1121,7 +1141,6 @@
     color: #fff;
   }
 
-  /* Thin vertical line used to visually separate groups of toolbar buttons. */
   .toolbar-sep {
     width: 1px;
     height: 18px;

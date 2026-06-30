@@ -1,6 +1,7 @@
-<script setup>
+﻿<script setup>
   import { ref, computed, watch, inject, onMounted, onUnmounted, nextTick } from 'vue'
   import { DEVICE_TYPES, DEVICE_PROPS } from '../../constants/devices.js'
+  import { LOG_LEVELS } from '../../constants/logLevels.js'
 
 
   /////////////////////////////////////////////
@@ -45,7 +46,7 @@
   const savedDevicesJson    = ref(null)   // baselined in onMounted after App.vue fetches complete
   const savedPlotInterval   = ref(chartPlotInterval.value)
 
-  const ctx = ref({ visible: false, x: 0, y: 0, mode: null, target: null })
+  const context = ref({ visible: false, x: 0, y: 0, mode: null, target: null })
 
 
   /////////////////////////////////////////////
@@ -120,13 +121,13 @@
   /////////////////////////////////////////////
   // Mounts
   onMounted(() => {
-    window.addEventListener('click', hideCtx)
+    window.addEventListener('click', hideContext)
     // Re-baseline after App.vue's async startup fetches have completed
     savedDevicesJson.value  = devicesSnapshot.value
     savedPlotInterval.value = chartPlotInterval.value
   })
 
-  onUnmounted(() => window.removeEventListener('click', hideCtx))
+  onUnmounted(() => window.removeEventListener('click', hideContext))
 
 
   /////////////////////////////////////////////
@@ -137,13 +138,13 @@
     savedPlotInterval.value   = chartPlotInterval.value
   }
 
-  function showCtx(e, mode, target) {
+  function showContext(e, mode, target) {
     e.preventDefault()
     e.stopPropagation()
-    ctx.value = { visible: true, x: e.clientX, y: e.clientY, mode, target }
+    context.value = { visible: true, x: e.clientX, y: e.clientY, mode, target }
   }
 
-  function hideCtx() { ctx.value.visible = false }
+  function hideContext() { context.value.visible = false }
 
   function addDevice(type) {
     const id = nextDevId++
@@ -160,12 +161,12 @@
               { name: DEVICE_PROPS.PortNumber, value: '502', description: 'Port number for connection',     propType: 'int',    editing: false },
             ] }
     )
-    hideCtx()
+    hideContext()
   }
 
   function deleteDevice(device) {
     devices.value = devices.value.filter(d => d.id !== device.id)
-    hideCtx()
+    hideContext()
   }
 
   function startDevEdit(prop) {
@@ -193,7 +194,7 @@
 
   async function saveSettings() {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/devices`, {
+      const response = await fetch(`${BACKEND_URL}/api/devices`, {
         method:  'POST',
         headers: {
           'Content-Type':  'application/json',
@@ -201,15 +202,15 @@
         },
         body: JSON.stringify({ devices: devices.value }),
       })
-      if (res.ok) {
+      if (response.ok) {
         saveAppSettings()
         updateSavedSnapshot()
-        addLog?.('Settings saved successfully', 'Info')
+        addLog?.('Settings saved successfully', LOG_LEVELS.Info)
       } else {
-        addLog?.(`Settings save failed (${res.status})`, 'Warning')
+        addLog?.(`Settings save failed (${response.status})`, LOG_LEVELS.Warning)
       }
     } catch {
-      addLog?.('Settings save failed — backend unreachable', 'Error')
+      addLog?.('Settings save failed — backend unreachable', LOG_LEVELS.Error)
     }
   }
 
@@ -217,18 +218,22 @@
   // The Load Settings button is still available for a manual refresh.
   async function loadSettings() {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/devices`)
-      if (res.ok) {
-        const data = await res.json()
+      const response = await fetch(`${BACKEND_URL}/api/devices`)
+      if (response.ok) {
+        const data = await response.json()
         if (data.devices?.length) devices.value = data.devices
+      } else {
+        addLog?.(`Failed to load settings (HTTP ${response.status})`, LOG_LEVELS.Warning)
       }
-    } catch { /* backend unreachable */ }
+    } catch (e) {
+      addLog?.(`Failed to load settings: ${e.message}`, LOG_LEVELS.Warning)
+    }
     updateSavedSnapshot()
   }
 </script>
 
 <template>
-  <div class="settings-view" @click="hideCtx">
+  <div class="settings-view" @click="hideContext">
     <div class="view-toolbar">
       <button class="toolbar-btn" @click.stop="saveSettings"><font-awesome-icon icon="floppy-disk" style="color: var(--accent)" /> Save Settings</button>
       <span v-if="unsavedChanges" class="unsaved-indicator"><font-awesome-icon icon="triangle-exclamation" /> Unsaved changes</span>
@@ -273,7 +278,7 @@
           <!-- ── Device Connections section ── -->
           <!-- Root row -->
           <tr class="settings-group-row dc-root-row" style="cursor:pointer" @click.stop="dcExpanded = !dcExpanded"
-            @contextmenu="e => showCtx(e, 'category', null)">
+            @contextmenu="e => showContext(e, 'category', null)">
             <td colspan="3">
               <span class="dc-toggle">{{ dcExpanded ? '▾' : '▸' }}</span>
               <font-awesome-icon icon="link" style="color: var(--accent)" /> Device Connections
@@ -285,11 +290,11 @@
             <template v-for="device in devices" :key="device.id">
               <!-- Device row -->
               <tr class="dc-device-row" style="cursor:pointer" @click.stop="device.expanded = !device.expanded"
-                @contextmenu="e => showCtx(e, 'device', device)">
+                @contextmenu="e => showContext(e, 'device', device)">
                 <td colspan="3">
                   <span class="depth-indent" style="width:20px" />
                   <span class="dc-toggle">{{ device.expanded ? '▾' : '▸' }}</span>
-                  <font-awesome-icon :icon="device.type === DEVICE_TYPES.Com ? 'plug' : 'network-wired'" :style="{ color: device.type === DEVICE_TYPES.Com ? '#4caf50' : 'var(--accent)' }" />
+                  <font-awesome-icon :icon="device.type === DEVICE_TYPES.Com ? 'plug' : 'network-wired'" :class="device.type" />
                   {{ device.name }}
                 </td>
               </tr>
@@ -344,13 +349,13 @@
     </div>
 
     <!-- Context menu -->
-    <div v-if="ctx.visible" class="context-menu" :style="{ top: ctx.y + 'px', left: ctx.x + 'px' }" @click.stop>
-      <template v-if="ctx.mode === 'category'">
+    <div v-if="context.visible" class="context-menu" :style="{ top: context.y + 'px', left: context.x + 'px' }" @click.stop>
+      <template v-if="context.mode === 'category'">
         <button class="context-item" @click="addDevice(DEVICE_TYPES.Com)"><font-awesome-icon icon="plug" class="context-icon" style="color: #4caf50" /> Add COM Device</button>
         <button class="context-item" @click="addDevice(DEVICE_TYPES.Ip)"><font-awesome-icon icon="network-wired" class="context-icon" style="color: var(--accent)" /> Add IP Device</button>
       </template>
-      <template v-else-if="ctx.mode === 'device'">
-        <button class="context-item context-item-danger" @click="deleteDevice(ctx.target)"><font-awesome-icon icon="trash" class="context-icon" /> Delete</button>
+      <template v-else-if="context.mode === 'device'">
+        <button class="context-item context-item-danger" @click="deleteDevice(context.target)"><font-awesome-icon icon="trash" class="context-icon" /> Delete</button>
       </template>
     </div>
   </div>
@@ -444,5 +449,8 @@
   .depth-indent { display: inline-block; }
 
   .context-icon { width: 14px; flex-shrink: 0; }
+
+  .com { color: #4caf50; }
+  .ip  { color: var(--accent); }
 
 </style>

@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
   import { ref, inject, onMounted } from 'vue'
   import { ALL_ROLES } from '../../auth/roles.js'
 
@@ -41,9 +41,9 @@
     error.value   = ''
     pendingRoles.value = {}
     try {
-      const res = await fetch(`${BACKEND_URL}/api/users`, { headers: authHeaders() })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      users.value = await res.json()
+      const response = await fetch(`${BACKEND_URL}/api/users`, { headers: authHeaders() })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      users.value = await response.json()
     } catch (e) {
       error.value = `Failed to load users: ${e.message}`
     } finally {
@@ -55,7 +55,7 @@
     if (!username.value.trim() || !password.value) return
     addError.value = ''
     try {
-      const res = await fetch(`${BACKEND_URL}/api/users`, {
+      const response = await fetch(`${BACKEND_URL}/api/users`, {
         method:  'POST',
         headers: authHeaders(),
         body:    JSON.stringify({
@@ -65,11 +65,11 @@
           isGlobal: isGlobal.value,
         }),
       })
-      if (res.status === 409) {
+      if (response.status === 409) {
         addError.value = 'Username already exists.'
         return
       }
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
       username.value     = ''
       password.value     = ''
@@ -107,12 +107,12 @@
 
     error.value = ''
     try {
-      const res = await fetch(`${BACKEND_URL}/api/users/${user.id}/role`, {
+      const response = await fetch(`${BACKEND_URL}/api/users/${user.id}/role`, {
         method:  'PATCH',
         headers: authHeaders(),
         body:    JSON.stringify({ role: newRole }),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
       // Commit the change locally and clear the pending entry
       user.instanceRole = newRole
@@ -124,11 +124,11 @@
 
   async function removeUser(user) {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/users/${user.id}`, {
+      const response = await fetch(`${BACKEND_URL}/api/users/${user.id}`, {
         method:  'DELETE',
         headers: authHeaders(),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
       await fetchUsers()
     } catch (e) {
       error.value = `Failed to remove user: ${e.message}`

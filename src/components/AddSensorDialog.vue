@@ -1,6 +1,7 @@
-<script setup>
+﻿<script setup>
   import { ref, computed, watch, inject, onMounted } from 'vue'
   import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS, SIMULATED_TYPES } from '../constants/devices.js'
+  import { LOG_LEVELS } from '../constants/logLevels.js'
 
 
   /////////////////////////////////////////////
@@ -83,14 +84,16 @@
 
   onMounted(async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/api/sensors`)
-      if (res.ok) {
-        const data = await res.json()
+      const response = await fetch(`${BACKEND_URL}/api/sensors`)
+      if (response.ok) {
+        const data = await response.json()
         sensorTypes.value = data.map(t => t.id)
+      } else {
+        addLog(`Failed to load sensor types (HTTP ${response.status})`, LOG_LEVELS.Warning)
       }
     } catch (e){
         // At this point we either timed out or the backend isn't running
-        addLog(`Failed to fetch sensor types: ${e}`, 'Error')
+        addLog(`Failed to fetch sensor types: ${e}`, LOG_LEVELS.Error)
       }
   })
 

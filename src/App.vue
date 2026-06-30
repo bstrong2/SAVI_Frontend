@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { ref, inject, provide, computed, watch, onMounted, onUnmounted } from 'vue'
 import * as signalR from '@microsoft/signalr'
 import AppRibbon from './components/AppRibbon.vue'
@@ -12,6 +12,7 @@ import LoggingDetails from './components/views/LoggingDetails.vue'
 import Recipe from './components/views/Recipe.vue'
 import Settings from './components/views/Settings.vue'
 import Users from './components/views/Users.vue'
+import { LOG_LEVELS } from './constants/logLevels.js'
 import { PERMISSIONS, canAccess } from './auth/roles.js'
 import { RUN_COMMANDS, OTHER_COMMANDS } from './constants/commands.js'
 import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS } from './constants/devices.js'
@@ -143,7 +144,7 @@ function syncPollInterval(seconds) {
     method:  'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ intervalSeconds: seconds }),
-  }).catch(() => {})
+  }).catch(e => addLog(`Failed to sync poll interval: ${e.message}`, LOG_LEVELS.Warning))
 }
 
 watch(chartPlotInterval, (seconds) => {
@@ -201,7 +202,7 @@ function saveAppSettings() {
       chartPlotInterval: chartPlotInterval.value,
       generalSettings:   generalSettings.value,
     }),
-  }).catch(() => {})
+  }).catch(e => addLog(`Failed to save app settings: ${e.message}`, LOG_LEVELS.Warning))
 }
 
 provide('connection',    connection)
@@ -220,8 +221,10 @@ provide('loggedSensors',   loggedSensors)
 provide('chartPlotInterval', chartPlotInterval)
 provide('saveAppSettings', saveAppSettings)
 
-function addLog(message, level = 'Info') {
-  logEntries.value.push({ timestamp: new Date().toLocaleTimeString(), message, level })
+const LEVEL_NAMES = ['Info', 'Warning', 'Error']
+function addLog(message, level = LOG_LEVELS.Info) {
+  const levelName = LEVEL_NAMES[level] ?? 'Info'
+  logEntries.value.push({ timestamp: new Date().toLocaleTimeString(), message, level: levelName })
   if (logEntries.value.length > maxLogEntries.value) {
     logEntries.value = logEntries.value.slice(-maxLogEntries.value)
   }
@@ -235,29 +238,34 @@ async function restoreRunState() {
     const dbRunId = savedInfo?.dbRunId
     if (!dbRunId) { localStorage.removeItem('savi-run'); return }
 
-    const res = await fetch(`${BACKEND_URL}/api/runs/${dbRunId}`)
-    if (res.ok) {
-      const data = await res.json()
+    const response = await fetch(`${BACKEND_URL}/api/runs/${dbRunId}`)
+    if (response.ok) {
+      const data = await response.json()
       if (data.status === 'Running') {
         runInfo.value  = savedInfo
         runState.value = savedState
-        addLog(`Run #${dbRunId} restored — logging is active`, 'Info')
+        addLog(`Run #${dbRunId} restored — logging is active`, LOG_LEVELS.Info)
       } else {
         localStorage.removeItem('savi-run')
       }
     } else {
+      addLog(`Failed to restore run state (HTTP ${response.status})`, LOG_LEVELS.Warning)
       localStorage.removeItem('savi-run')
     }
-  } catch {
+  } catch (e) {
+    addLog(`Failed to restore run state: ${e.message}`, LOG_LEVELS.Warning)
     localStorage.removeItem('savi-run')
   }
 }
 
 async function loadTheme() {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/settings`)
-    if (!res.ok) return
-    const data = await res.json()
+    const response = await fetch(`${BACKEND_URL}/api/settings`)
+    if (!response.ok) {
+      addLog(`Failed to load settings (HTTP ${response.status})`, LOG_LEVELS.Warning)
+      return
+    }
+    const data = await response.json()
     const theme = data?.theme === 'dark' ? 'dark' : 'light'
     localStorage.setItem('savi-theme', theme)
     isDark.value = theme === 'dark'
@@ -270,7 +278,9 @@ async function loadTheme() {
     if (data?.generalSettings) {
       generalSettings.value = { ...generalSettings.value, ...data.generalSettings }
     }
-  } catch { /* backend unreachable — honour cached value already applied by index.html */ }
+  } catch (e) {
+    addLog(`Backend unreachable — using cached theme: ${e.message}`, LOG_LEVELS.Warning)
+  }
 }
 
 async function toggleTheme() {
@@ -292,29 +302,31 @@ async function handleLogin({ username, password }) {
   loginError.value   = ''
   loginLoading.value = true
   try {
-    const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+    const response = await fetch(`${BACKEND_URL}/api/auth/login`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ username, password }),
     })
 
-    if (res.status === 401) {
+    if (response.status === 401) {
       loginError.value = 'Invalid username or password, or not authorized for this instance.'
       return
     }
-    if (!res.ok) {
+    if (!response.ok) {
       loginError.value = 'Login failed. Please try again.'
+      addLog(`Login failed (HTTP ${response.status})`, LOG_LEVELS.Warning)
       return
     }
 
-    const data = await res.json()
+    const data = await response.json()
     authToken.value   = data.token
     currentUser.value = { username: data.username, role: data.role }
     showLoginDialog.value   = false
     loginError.value  = ''
-    addLog(`Logged in as ${data.username} (${data.role})`, 'Info')
-  } catch {
+    addLog(`Logged in as ${data.username} (${data.role})`, LOG_LEVELS.Info)
+  } catch (e) {
     loginError.value = 'Cannot reach the backend.'
+    addLog(`Login request failed: ${e.message}`, LOG_LEVELS.Error)
   } finally {
     loginLoading.value = false
   }
@@ -324,7 +336,7 @@ function handleLogout() {
   authToken.value   = null
   currentUser.value = null
   activeView.value  = 'device-layout'
-  addLog('Logged out', 'Info')
+  addLog('Logged out', LOG_LEVELS.Info)
 }
 
 onMounted(async () => {
@@ -333,22 +345,26 @@ onMounted(async () => {
 
   // Load saved device configs so they're available in every view immediately
   try {
-    const res = await fetch(`${BACKEND_URL}/api/devices`)
-    if (res.ok) {
-      const data = await res.json()
+    const response = await fetch(`${BACKEND_URL}/api/devices`)
+    if (response.ok) {
+      const data = await response.json()
       if (data.devices?.length) devices.value = data.devices
+    } else {
+      addLog(`Failed to load devices (HTTP ${response.status})`, LOG_LEVELS.Warning)
     }
-  } catch { /* backend not yet reachable — Settings can reload manually */ }
+  } catch (e) {
+    addLog(`Failed to load devices: ${e.message}`, LOG_LEVELS.Warning)
+  }
 
   const conn = new signalR.HubConnectionBuilder()
     .withUrl(`${BACKEND_URL}/saviHub`)
     .withAutomaticReconnect()
     .build()
 
-  conn.on('ReceiveServerMessage', (msg)          => addLog(msg, 'Info'))
-  conn.on('ReceiveMessage',       (sender, msg)  => addLog(`${sender}: ${msg}`, 'Info'))
+  conn.on('ReceiveServerMessage', (msg)          => addLog(msg, LOG_LEVELS.Info))
+  conn.on('ReceiveMessage',       (sender, msg)  => addLog(`${sender}: ${msg}`, LOG_LEVELS.Info))
   conn.on('ReceiveLog',           (ts, msg, lvl) => logEntries.value.push({ timestamp: ts, message: msg, level: lvl }))
-  conn.on('RunStateChanged',      (state)        => addLog(`Run state: ${state}`, 'Info'))
+  conn.on('RunStateChanged',      (state)        => addLog(`Run state: ${state}`, LOG_LEVELS.Info))
 
   // Real Pi sensor readings — Pi sends SensorUpdate(canvasId_str, value) at poll rate.
   // Updates the canvas tile so Device Layout reflects live state and the
@@ -377,7 +393,7 @@ onMounted(async () => {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ pin: item.pin, canvasId: item.id }),
-      }).catch(() => {})
+      }).catch(e => addLog(`DI monitor re-setup failed after reconnect: ${e.message}`, LOG_LEVELS.Warning))
     }
   })
 
@@ -450,7 +466,7 @@ onMounted(async () => {
             method:  'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken.value}` },
             body:    JSON.stringify({ readings }),
-          }).catch(() => {})
+          }).catch(e => addLog(`Failed to write readings to DB: ${e.message}`, LOG_LEVELS.Warning))
         }
       }
     }
@@ -464,10 +480,10 @@ onMounted(async () => {
     await conn.start()
     connectionStatus.value = 'Connected'
     connection.value       = conn
-    addLog('SignalR connected', 'Info')
-  } catch (err) {
+    addLog('SignalR connected', LOG_LEVELS.Info)
+  } catch (e) {
     connectionStatus.value = 'Disconnected'
-    addLog(`Connection error: ${err.message}`, 'Error')
+    addLog(`Connection error: ${e.message}`, LOG_LEVELS.Error)
   }
 })
 
@@ -497,7 +513,7 @@ function pushChartPoint(sensorId, value) {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken.value}` },
       body:    JSON.stringify({ readings: [{ canvasId: sensorId, value }] }),
-    }).catch(() => {})
+    }).catch(e => addLog(`Failed to write reading to DB: ${e.message}`, LOG_LEVELS.Warning))
   }
 }
 
@@ -529,8 +545,8 @@ async function callRelay(sensor, state) {
         })
       }
     }
-  } catch (err) {
-    addLog(`Relay command failed: ${err.message}`, 'Warning')
+  } catch (e) {
+    addLog(`Relay command failed: ${e.message}`, LOG_LEVELS.Warning)
   }
   // Mirror tile state locally and push a chart point immediately.
   // Real Pi relays have no SimulatedSensorState broadcast, so this is the only chart update path.
@@ -541,7 +557,7 @@ async function callRelay(sensor, state) {
 
 async function executeRecipe(recipe, doSensor, diSensor) {
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
-  addLog(`Executing recipe: ${recipe.name} (${recipe.steps.length} steps)`, 'Info')
+  addLog(`Executing recipe: ${recipe.name} (${recipe.steps.length} steps)`, LOG_LEVELS.Info)
   for (const step of recipe.steps) {
     if (runState.value !== 'running') break
     if (step.action === 'relay/on')  await callRelay(doSensor, true)
@@ -552,7 +568,7 @@ async function executeRecipe(recipe, doSensor, diSensor) {
   // Ensure relay is off at end of recipe
   if (doSensor) await callRelay(doSensor, false)
   if (runState.value === 'running') {
-    addLog(`Recipe complete — stopping run`, 'Info')
+    addLog(`Recipe complete — stopping run`, LOG_LEVELS.Info)
     handleRunCommand(RUN_COMMANDS.Stop)
   }
 }
@@ -578,7 +594,7 @@ async function handleRunCommand(cmd) {
       fetch(`${BACKEND_URL}/api/run/${dbRunId}/stop`, {
         method:  'POST',
         headers: authToken.value ? { Authorization: `Bearer ${authToken.value}` } : {},
-      }).catch(() => {})
+      }).catch(e => addLog(`Failed to send run stop to backend: ${e.message}`, LOG_LEVELS.Warning))
     }
   }
 }
@@ -599,7 +615,7 @@ async function handleStartConfirmed(info) {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ canvasId: s.id, name: s.name, driver: s.driver }),
-    }).catch(() => {})
+    }).catch(e => addLog(`Sensor pre-registration failed: ${e.message}`, LOG_LEVELS.Warning))
   }
 
   runState.value = 'running'
@@ -616,12 +632,12 @@ async function handleStartConfirmed(info) {
   showStartRunDialog.value = false
 
   const sensorNames = recipeSensors.map(s => s.name).join(', ') || 'none'
-  addLog(`Run started by ${info.startedBy} — Recipe: ${info.recipeName} — Sensors: ${sensorNames}`, 'Info')
+  addLog(`Run started by ${info.startedBy} — Recipe: ${info.recipeName} — Sensors: ${sensorNames}`, LOG_LEVELS.Info)
 
   // Create DB run record
   let recipe = null
   try {
-    const res = await fetch(`${BACKEND_URL}/api/run/start`, {
+    const response = await fetch(`${BACKEND_URL}/api/run/start`, {
       method:  'POST',
       headers: {
         'Content-Type':  'application/json',
@@ -633,12 +649,16 @@ async function handleStartConfirmed(info) {
         notes:      info.notes,
       }),
     })
-    if (res.ok) {
-      const data = await res.json()
+    if (response.ok) {
+      const data = await response.json()
       runInfo.value = { ...runInfo.value, dbRunId: parseInt(data.runId) }
       recipe = data.recipe ?? null
+    } else {
+      addLog(`Failed to create run record (HTTP ${response.status})`, LOG_LEVELS.Warning)
     }
-  } catch { /* best-effort — frontend run state already set */ }
+  } catch (e) {
+    addLog(`Failed to create run record: ${e.message}`, LOG_LEVELS.Warning)
+  }
 
   // Execute recipe steps (fire-and-forget — runs asynchronously while UI is live)
   if (recipe?.steps?.length) {
@@ -661,12 +681,12 @@ async function handleLogOnlyConfirmed(info) {
   addLog(
     `Log-only started by ${info.startedBy} — ${info.selectedSensors.length} sensor(s): ` +
     info.selectedSensors.map(s => s.name).join(', '),
-    'Info'
+    LOG_LEVELS.Info
   )
 
   // Create DB run record
   try {
-    const res = await fetch(`${BACKEND_URL}/api/run/start`, {
+    const response = await fetch(`${BACKEND_URL}/api/run/start`, {
       method:  'POST',
       headers: {
         'Content-Type':  'application/json',
@@ -678,11 +698,15 @@ async function handleLogOnlyConfirmed(info) {
         notes:      info.notes,
       }),
     })
-    if (res.ok) {
-      const data = await res.json()
+    if (response.ok) {
+      const data = await response.json()
       runInfo.value = { ...runInfo.value, dbRunId: parseInt(data.runId) }
+    } else {
+      addLog(`Failed to create run record (HTTP ${response.status})`, LOG_LEVELS.Warning)
     }
-  } catch { /* best-effort */ }
+  } catch (e) {
+    addLog(`Failed to create run record: ${e.message}`, LOG_LEVELS.Warning)
+  }
 }
 
 function handleOtherCommand(cmd) {

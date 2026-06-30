@@ -12,15 +12,15 @@
       {
         id: 1, name: 'COM Device', type: 'com', expanded: false,
         properties: [
-          { name: 'ComName',  value: 'COM1', description: 'COM port name (e.g., COM1)', propType: 'string', editing: false },
-          { name: 'BaudRate', value: '9600', description: 'Baud rate for communication',  propType: 'int',    editing: false },
+          { name: 'ComName', value: 'COM1', description: 'COM port name (e.g., COM1)', propType: 'string', editing: false },
+          { name: 'BaudRate', value: '9600', description: 'Baud rate for communication', propType: 'int', editing: false },
         ],
       },
       {
         id: 2, name: 'IP Device', type: 'ip', expanded: false,
         properties: [
-          { name: 'IpAddress',  value: '192.168.1.100', description: 'IP address of the device',   propType: 'string', editing: false },
-          { name: 'PortNumber', value: '502',            description: 'Port number for connection', propType: 'int',    editing: false },
+          { name: 'IpAddress', value: '192.168.1.100', description: 'IP address of the device', propType: 'string', editing: false },
+          { name: 'PortNumber', value: '502', description: 'Port number for connection', propType: 'int', editing: false },
         ],
       },
     ],
@@ -29,31 +29,33 @@
   let nextId = 3
 
   // Context menu state.
-  const ctx = ref({ visible: false, x: 0, y: 0, mode: null, target: null })
+  const context = ref({ visible: false, x: 0, y: 0, mode: null, target: null })
 
   /////////////////////////////////////////////
   // Mounts
-  onMounted(()   => window.addEventListener('click', hideCtx))
-  onUnmounted(() => window.removeEventListener('click', hideCtx))
+  onMounted(()   => window.addEventListener('click', hideContext))
+  onUnmounted(() => window.removeEventListener('click', hideContext))
 
 
   /////////////////////////////////////////////
   // Defining all functions.
-
-  function hideCtx() { ctx.value.visible = false }
+  function hideContext() { 
+    context.value.visible = false 
+  }
 
   function onRootRightClick(e) {
     e.preventDefault()
     e.stopPropagation()
-    ctx.value = { visible: true, x: e.clientX, y: e.clientY, mode: 'category', target: null }
+    context.value = { visible: true, x: e.clientX, y: e.clientY, mode: 'category', target: null }
   }
 
   function onDeviceRightClick(e, device) {
     e.preventDefault()
     e.stopPropagation()
-    ctx.value = { visible: true, x: e.clientX, y: e.clientY, mode: 'device', target: device }
+    context.value = { visible: true, x: e.clientX, y: e.clientY, mode: 'device', target: device }
   }
 
+  // Adding default values that the user might enter, trying to save them time as opposed to there being nothing there.
   function addDevice(type) {
     const id = nextId++
     root.value.children.push(
@@ -61,24 +63,24 @@
         ? {
             id, name: 'COM Device', type: 'com', expanded: true,
             properties: [
-              { name: 'ComName',  value: '',     description: 'COM port name (e.g., COM1)',   propType: 'string', editing: false },
-              { name: 'BaudRate', value: '9600', description: 'Baud rate for communication',  propType: 'int',    editing: false },
+              { name: 'ComName', value: '', description: 'COM port name (e.g., COM1)', propType: 'string', editing: false },
+              { name: 'BaudRate', value: '9600', description: 'Baud rate for communication', propType: 'int', editing: false },
             ],
           }
         : {
             id, name: 'IP Device', type: 'ip', expanded: true,
             properties: [
-              { name: 'IpAddress',  value: '',    description: 'IP address of the device',    propType: 'string', editing: false },
-              { name: 'PortNumber', value: '502', description: 'Port number for connection',  propType: 'int',    editing: false },
+              { name: 'IpAddress', value: '', description: 'IP address of the device', propType: 'string', editing: false },
+              { name: 'PortNumber', value: '502', description: 'Port number for connection', propType: 'int', editing: false },
             ],
           }
     )
-    hideCtx()
+    hideContext()
   }
 
   function deleteDevice(device) {
     root.value.children = root.value.children.filter(d => d.id !== device.id)
-    hideCtx()
+    hideContext()
   }
 
   // Close all other edits and open this one, then focus the input.
@@ -91,10 +93,13 @@
     })
   }
 
-  function commitEdit(prop) { prop.editing = false }
+  function commitEdit(prop) { 
+    prop.editing = false 
+  }
 
   function onEditKey(e, prop) {
-    if (e.key === 'Enter' || e.key === 'Escape') commitEdit(prop)
+    if (e.key === 'Enter' || e.key === 'Escape') 
+      commitEdit(prop)
   }
 
   function saveSettings() {
@@ -103,7 +108,7 @@
       properties: d.properties.map(p => ({ name: p.name, value: p.value })),
     }))
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url  = URL.createObjectURL(blob)
+    const url = URL.createObjectURL(blob)
     const downloadLink = document.createElement('a')
     downloadLink.href = url; downloadLink.download = 'device_connections.json'; downloadLink.click()
     URL.revokeObjectURL(url)
@@ -114,7 +119,9 @@
     input.type = 'file'; input.accept = '.json'
     input.onchange = e => {
       const file = e.target.files[0]
-      if (!file) return
+      if (!file) 
+        return
+
       const reader = new FileReader()
       reader.onload = ev => {
         try {
@@ -129,7 +136,9 @@
             })),
           }))
           nextId = Math.max(...root.value.children.map(d => d.id), nextId) + 1
-        } catch { alert('Invalid file format') }
+        } catch { 
+          alert('Invalid file format') 
+        }
       }
       reader.readAsText(file)
     }
@@ -138,16 +147,16 @@
 
   function propDesc(name) {
     return {
-      ComName:    'COM port name (e.g., COM1)',
-      BaudRate:   'Baud rate for communication',
-      IpAddress:  'IP address of the device',
+      ComName: 'COM port name (e.g., COM1)',
+      BaudRate: 'Baud rate for communication',
+      IpAddress: 'IP address of the device',
       PortNumber: 'Port number for connection',
     }[name] ?? ''
   }
 </script>
 
 <template>
-  <div class="dc-view" @click="hideCtx">
+  <div class="dc-view" @click="hideContext">
 
     <!-- Toolbar -->
     <div class="view-toolbar">
@@ -166,11 +175,7 @@
     <div class="dc-tree">
 
       <!-- Root row -->
-      <div
-        class="dc-row dc-row-category"
-        @click.stop="root.expanded = !root.expanded"
-        @contextmenu="onRootRightClick"
-      >
+      <div class="dc-row dc-row-category" @click.stop="root.expanded = !root.expanded" @contextmenu="onRootRightClick">
         <div class="dc-col-name">
           <span class="dc-toggle">{{ root.expanded ? '▾' : '▸' }}</span>
           <font-awesome-icon icon="link" style="color: var(--accent)" /> Device Connections
@@ -184,15 +189,12 @@
         <template v-for="device in root.children" :key="device.id">
 
           <!-- Device row -->
-          <div
-            class="dc-row dc-row-device"
-            @click.stop="device.expanded = !device.expanded"
-            @contextmenu="e => onDeviceRightClick(e, device)"
-          >
+          <div class="dc-row dc-row-device" @click.stop="device.expanded = !device.expanded" 
+          @contextmenu="e => onDeviceRightClick(e, device)">
             <div class="dc-col-name">
               <span class="dc-indent" />
               <span class="dc-toggle">{{ device.expanded ? '▾' : '▸' }}</span>
-              <font-awesome-icon :icon="device.type === 'com' ? 'plug' : 'network-wired'" :style="{ color: device.type === 'com' ? '#4caf50' : 'var(--accent)' }" class="dc-device-icon" />
+              <font-awesome-icon :icon="device.type === 'com' ? 'plug' : 'network-wired'" class="dc-device-icon" :class="device.type" />
               {{ device.name }}
             </div>
             <div class="dc-col-value" />
@@ -201,12 +203,8 @@
 
           <!-- Properties -->
           <template v-if="device.expanded">
-            <div
-              v-for="prop in device.properties"
-              :key="prop.name"
-              class="dc-row dc-row-prop"
-              :class="{ 'prop-edit-active': prop.editing }"
-            >
+            <div v-for="prop in device.properties" :key="prop.name" class="dc-row dc-row-prop" 
+            :class="{ 'prop-edit-active': prop.editing }">
               <div class="dc-col-name">
                 <span class="dc-indent" /><span class="dc-indent" />
                 {{ prop.name }}
@@ -219,24 +217,13 @@
 
                 <!-- String edit -->
                 <input
-                  v-else-if="prop.propType === 'string'"
-                  type="text"
-                  class="dc-input"
-                  v-model="prop.value"
-                  @blur="commitEdit(prop)"
-                  @keydown="e => onEditKey(e, prop)"
-                />
+                  v-else-if="prop.propType === 'string'" type="text" class="dc-input" v-model="prop.value" @blur="commitEdit(prop)"
+                  @keydown="e => onEditKey(e, prop)"/>
 
                 <!-- Int edit -->
-                <input
-                  v-else-if="prop.propType === 'int'"
-                  type="number"
-                  step="1"
-                  class="dc-input dc-input-num"
-                  v-model="prop.value"
+                <input v-else-if="prop.propType === 'int'" type="number" step="1" class="dc-input dc-input-num" v-model="prop.value"
                   @blur="commitEdit(prop)"
-                  @keydown="e => onEditKey(e, prop)"
-                />
+                  @keydown="e => onEditKey(e, prop)"/>
               </div>
 
               <div class="dc-col-desc">{{ prop.description }}</div>
@@ -248,13 +235,8 @@
     </div>
 
     <!-- Context menu -->
-    <div
-      v-if="ctx.visible"
-      class="context-menu"
-      :style="{ top: ctx.y + 'px', left: ctx.x + 'px' }"
-      @click.stop
-    >
-      <template v-if="ctx.mode === 'category'">
+    <div v-if="context.visible" class="context-menu" :style="{ top: context.y + 'px', left: context.x + 'px' }" @click.stop>
+      <template v-if="context.mode === 'category'">
         <button class="context-item" @click="addDevice('com')">
           <font-awesome-icon icon="plug" class="context-icon" style="color: #4caf50" /> Add COM Device
         </button>
@@ -262,8 +244,8 @@
           <font-awesome-icon icon="network-wired" class="context-icon" style="color: var(--accent)" /> Add IP Device
         </button>
       </template>
-      <template v-else-if="ctx.mode === 'device'">
-        <button class="context-item context-item-danger" @click="deleteDevice(ctx.target)">
+      <template v-else-if="context.mode === 'device'">
+        <button class="context-item context-item-danger" @click="deleteDevice(context.target)">
           <font-awesome-icon icon="trash" class="context-icon" /> Delete
         </button>
       </template>
@@ -273,120 +255,117 @@
 </template>
 
 <style scoped>
-.dc-view {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-  position: relative;
-}
+  /* dc standing for device connections */
+  .dc-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+  }
 
-/* Header */
-.dc-header {
-  display: flex;
-  background: var(--bg-table-header);
-  border-bottom: 2px solid var(--border-color);
-  font-weight: 600;
-  font-size: 12px;
-  padding: 5px 0;
-  flex-shrink: 0;
-  user-select: none;
-}
+  .dc-header {
+    display: flex;
+    background: var(--bg-table-header);
+    border-bottom: 2px solid var(--border-color);
+    font-weight: 600;
+    font-size: 12px;
+    padding: 5px 0;
+    flex-shrink: 0;
+    user-select: none;
+  }
 
-/* Tree */
-.dc-tree {
-  flex: 1;
-  overflow-y: auto;
-}
+  .dc-tree {
+    flex: 1;
+    overflow-y: auto;
+  }
 
-/* Shared column widths */
-.dc-col-name  { 
-  width: 240px; flex-shrink: 0; padding: 0 8px; display: flex; align-items: center; gap: 4px; 
-}
-.dc-col-value { 
-  width: 200px; flex-shrink: 0; padding: 0 6px; display: flex; align-items: center; 
-}
-.dc-col-desc  { 
-  flex: 1; padding: 0 8px; display: flex; align-items: center; font-size: 11px; color: var(--text-secondary); 
-}
+  .dc-col-name  { 
+    width: 240px; flex-shrink: 0; padding: 0 8px; display: flex; align-items: center; gap: 4px; 
+  }
+  .dc-col-value { 
+    width: 200px; flex-shrink: 0; padding: 0 6px; display: flex; align-items: center; 
+  }
+  .dc-col-desc  { 
+    flex: 1; padding: 0 8px; display: flex; align-items: center; font-size: 11px; color: var(--text-secondary); 
+  }
 
-/* Rows */
-.dc-row {
-  display: flex;
-  align-items: stretch;
-  min-height: 26px;
-  border-bottom: 1px solid var(--border-color);
-  cursor: default;
-}
-.dc-row:hover { 
-  background: var(--bg-table-hover); 
-}
+  .dc-row {
+    display: flex;
+    align-items: stretch;
+    min-height: 26px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: default;
+  }
+  .dc-row:hover { 
+    background: var(--bg-table-hover); 
+  }
 
-.dc-row-category {
-  background: var(--bg-table-header);
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
-}
-.dc-row-category:hover { 
-  background: var(--bg-ribbon-btn-hover); 
-}
+  .dc-row-category {
+    background: var(--bg-table-header);
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .dc-row-category:hover { 
+    background: var(--bg-ribbon-btn-hover); 
+  }
 
-.dc-row-device {
-  background: var(--bg-table-alt);
-  font-weight: 600;
-  font-size: 12px;
-  cursor: pointer;
-}
-.dc-row-device:hover { 
-  background: var(--bg-table-hover); 
-}
+  .dc-row-device {
+    background: var(--bg-table-alt);
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .dc-row-device:hover { 
+    background: var(--bg-table-hover); 
+  }
 
-.dc-row-prop {
-  font-size: 12px;
-}
+  .dc-row-prop {
+    font-size: 12px;
+  }
 
-/* Indentation & toggles */
-.dc-indent { 
-  display: inline-block; width: 18px; flex-shrink: 0; 
-}
-.dc-toggle { 
-  font-size: 10px; color: var(--text-secondary); flex-shrink: 0; 
-}
-.dc-device-icon { 
-  flex-shrink: 0; 
-}
+  .dc-indent { 
+    display: inline-block; width: 18px; flex-shrink: 0; 
+  }
+  .dc-toggle { 
+    font-size: 10px; color: var(--text-secondary); flex-shrink: 0; 
+  }
+  .dc-device-icon { 
+    flex-shrink: 0; 
+  }
 
-/* Value display */
-.dc-value-display {
-  cursor: text;
-  min-width: 20px;
-  padding: 2px 4px;
-  border-radius: 2px;
-  border: 1px solid transparent;
-}
-.dc-row-prop:hover .dc-value-display { 
-  border-color: var(--border-color); 
-}
+  .dc-value-display {
+    cursor: text;
+    min-width: 20px;
+    padding: 2px 4px;
+    border-radius: 2px;
+    border: 1px solid transparent;
+  }
+  .dc-row-prop:hover .dc-value-display { 
+    border-color: var(--border-color); 
+  }
 
-/* Inline inputs */
-.dc-input {
-  width: 100%;
-  padding: 1px 4px;
-  font-size: 12px;
-  font-family: inherit;
-  border: 1px solid var(--accent);
-  border-radius: 2px;
-  background: var(--bg-input);
-  color: var(--text-primary);
-  outline: none;
-}
-.dc-input-num { 
-  width: 100px; 
-}
+  .dc-input {
+    width: 100%;
+    padding: 1px 4px;
+    font-size: 12px;
+    font-family: inherit;
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+    outline: none;
+  }
+  .dc-input-num { 
+    width: 100px; 
+  }
 
-.context-icon {
-  width: 14px;
-  flex-shrink: 0;
-}
+  .context-icon {
+    width: 14px;
+    flex-shrink: 0;
+  }
+
+  .com { color: #4caf50; }
+  .ip  { color: var(--accent); }
 </style>

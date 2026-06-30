@@ -22,3 +22,8 @@ export const SIMULATED_TYPES = Object.freeze([
   DRIVERS.Relay,
   DRIVERS.CollisionDetector,
 ])
+
+export const DRIVER_DEFAULTS = Object.freeze({
+  [DRIVERS.Relay]:             { relayState: 'off' },
+  [DRIVERS.CollisionDetector]: { value: 'No Contact', unit: '' },
+})
