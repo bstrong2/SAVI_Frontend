@@ -1,6 +1,6 @@
 <script setup>
   import { ref, computed, inject } from 'vue'
-  import { DRIVERS } from '../constants/devices.js'
+  import { ITEM_TYPES, DRIVERS } from '../constants/devices.js'
 
   
   /////////////////////////////////////////////
@@ -24,7 +24,7 @@
     if (!layoutItems?.value) 
       return []
     
-    return layoutItems.value.filter(i => i.type === 'sensor')
+    return layoutItems.value.filter(i => i.type === ITEM_TYPES.Sensor)
   })
 
   const startedBy = computed(() => {

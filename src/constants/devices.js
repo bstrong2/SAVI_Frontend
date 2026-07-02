@@ -1,3 +1,8 @@
+export const ITEM_TYPES = Object.freeze({
+  Sensor: 'sensor',
+  Rect:   'rect',
+})
+
 export const DRIVERS = Object.freeze({
   Relay: 'relay',
   CollisionDetector: 'collision-detector',

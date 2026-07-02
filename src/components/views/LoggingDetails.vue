@@ -1,6 +1,7 @@
 ﻿<script setup>
   import { ref, computed, inject, watch, onMounted, onUnmounted } from 'vue'
   import { LOG_LEVELS } from '../../constants/logLevels.js'
+  import { ITEM_TYPES } from '../../constants/devices.js'
   import { Line } from 'vue-chartjs'
   import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 
@@ -32,7 +33,7 @@
   const isLogOnlyMode = computed(() => loggedSensors.value.length > 0)
 
   const allCanvasSensors = computed(() =>
-    (layoutItems?.value ?? []).filter(i => i.type === 'sensor')
+    (layoutItems?.value ?? []).filter(i => i.type === ITEM_TYPES.Sensor)
   )
 
   // In log-only mode show only logged sensors; otherwise all canvas sensors
@@ -42,7 +43,7 @@
 
   const startedBy = computed(() => runInfo?.value?.startedBy ?? '—')
   const startedAt = computed(() => runInfo?.value?.startedAt ?? '—')
-  const status    = computed(() => runInfo?.value?.status    ?? 'Idle')
+  const status = computed(() => runInfo?.value?.status ?? 'Idle')
 
   // Does NOT read chartData directly — avoids triggering a simultaneous options+data change
   // that would cause vue-chartjs to reinitialise the chart on every broadcast tick.
@@ -87,14 +88,16 @@
   // When a run's dbRunId first becomes available (API call completed after run start),
   // load whatever readings exist so far as a baseline.
   watch(() => runInfo.value?.dbRunId, async (newId, oldId) => {
-    if (newId && !oldId) await loadChartFromDb(newId)
+    if (newId && !oldId) 
+      await loadChartFromDb(newId)
   })
 
   // When a run stops, reload from DB so the completed run's data appears on the chart.
   watch(runState, async (newState, oldState) => {
     if (newState === 'idle' && oldState !== 'idle') {
       const dbRunId = runInfo?.value?.dbRunId
-      if (dbRunId) await loadChartFromDb(dbRunId)
+      if (dbRunId) 
+        await loadChartFromDb(dbRunId)
     }
   })
 
@@ -230,7 +233,8 @@
       return
 
     const ds = chartData.value.datasets[0]
-    if (!ds) return
+    if (!ds) 
+      return
 
     const newLabels = [...chartData.value.labels, fmtDateTime()]
     const newData   = [...ds.data, value]

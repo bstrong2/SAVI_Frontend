@@ -1,6 +1,6 @@
 ﻿<script setup>
   import { ref, computed, inject, watch, onMounted } from 'vue'
-  import { DRIVERS } from '../constants/devices.js'
+  import { ITEM_TYPES, DRIVERS } from '../constants/devices.js'
   import { LOG_LEVELS } from '../constants/logLevels.js'
 
 
@@ -37,9 +37,9 @@
     selectedRecipeObj.value?.description ?? '')
 
   const doSensors = computed(() =>
-    layoutItems.value.filter(i => i.type === 'sensor' && i.driver === DRIVERS.Relay))
+    layoutItems.value.filter(i => i.type === ITEM_TYPES.Sensor && i.driver === DRIVERS.Relay))
   const diSensors = computed(() =>
-    layoutItems.value.filter(i => i.type === 'sensor' && i.driver === DRIVERS.CollisionDetector))
+    layoutItems.value.filter(i => i.type === ITEM_TYPES.Sensor && i.driver === DRIVERS.CollisionDetector))
 
     const selectedDoSensor = computed(() =>
     doSensors.value.find(s => s.id === selectedDoId.value) ?? null)

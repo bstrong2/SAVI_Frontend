@@ -15,7 +15,7 @@ import Users from './components/views/Users.vue'
 import { LOG_LEVELS } from './constants/logLevels.js'
 import { PERMISSIONS, canAccess } from './auth/roles.js'
 import { RUN_COMMANDS, OTHER_COMMANDS } from './constants/commands.js'
-import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS } from './constants/devices.js'
+import { ITEM_TYPES, DRIVERS, DEVICE_TYPES, DEVICE_PROPS } from './constants/devices.js'
 
 const BACKEND_URL = inject('BACKEND_URL')
 
@@ -372,7 +372,7 @@ onMounted(async () => {
   conn.on('SensorUpdate', (sensorIdStr, value) => {
     const tileId = parseInt(sensorIdStr, 10)
     if (isNaN(tileId)) return
-    const tile = layoutItems.value.find(i => i.id === tileId && i.type === 'sensor')
+    const tile = layoutItems.value.find(i => i.id === tileId && i.type === ITEM_TYPES.Sensor)
     if (!tile) return
     if (tile.driver === DRIVERS.CollisionDetector) {
       tile.value = value >= 0.5 ? 'Collision!' : 'No Contact'
@@ -405,14 +405,14 @@ onMounted(async () => {
     // ── Canvas tile updates ─────────────────────────────────────────────────
     for (const r of state.relays ?? []) {
       const item = layoutItems.value.find(
-        i => i.type === 'sensor' && i.id === r.id &&
+        i => i.type === ITEM_TYPES.Sensor && i.id === r.id &&
              i.driver === DRIVERS.Relay && i.connection === DRIVERS.Simulated
       )
       if (item) item.relayState = r.state           // 'on' | 'off'
     }
     for (const d of state.digitalInputs ?? []) {
       const item = layoutItems.value.find(
-        i => i.type === 'sensor' && i.id === d.id &&
+        i => i.type === ITEM_TYPES.Sensor && i.id === d.id &&
              i.driver === DRIVERS.CollisionDetector && i.connection === DRIVERS.Simulated
       )
       if (item) item.value = d.stateLabel           // 'Collision!' | 'No Contact'
