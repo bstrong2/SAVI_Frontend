@@ -3,9 +3,13 @@
   import { PERMISSIONS, canAccess } from '../auth/roles.js'
   import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS } from '../constants/devices.js'
   import { LOG_LEVELS } from '../constants/logLevels.js'
+  import { RUN_STATUS } from '../constants/runStatus.js'
 
+
+  /////////////////////////////////////////////
+  // Define variables.
   const props = defineProps({
-    item:       { type: Object,  required: true },
+    item: { type: Object,  required: true },
     isEditMode: { type: Boolean, default: false },
     isSelected: { type: Boolean, default: false },
   })
@@ -13,26 +17,40 @@
   const emit = defineEmits(['drag-start', 'select'])
 
   const BACKEND_URL = inject('BACKEND_URL')
-  const authToken   = inject('authToken')
+  const authToken = inject('authToken')
   const currentUser = inject('currentUser')
-  const addLog      = inject('addLog', () => {})
-  const runState    = inject('runState', ref('idle'))
-  const runInfo     = inject('runInfo',  ref(null))
-  const devices     = inject('devices',  ref([]))
+  const addLog = inject('addLog', () => {})
+  const runState = inject('runState', ref(RUN_STATUS.Idle))
+  const runInfo = inject('runInfo',  ref(null))
+  const devices = inject('devices',  ref([]))
 
+
+  /////////////////////////////////////////////
+  // Define computed properties.
   const canOperate = computed(() => canAccess(currentUser?.value, PERMISSIONS.OperatorOnly))
-  const isRunning  = computed(() => runState.value === 'running' || runState.value === 'paused')
+  const isRunning = computed(() => runState.value === RUN_STATUS.Running || runState.value === RUN_STATUS.Paused)
 
+  const tileStyle = computed(() => ({
+    left: props.item.x + 'px',
+    top: props.item.y + 'px',
+    background: props.item.color || 'var(--bg-sensor-tile)',
+  }))
+
+
+  /////////////////////////////////////////////
+  // Defining all functions.
   function isRecipeRelay(item) {
     return isRunning.value && runInfo.value?.doSensorId === item.id
   }
 
   function resolveDeviceId(connection) {
-    if (!connection || connection === DRIVERS.Simulated) return null
+    if (!connection || connection === DRIVERS.Simulated)
+      return null
     for (const d of devices.value) {
       if (d.type === DEVICE_TYPES.Ip) {
         const ip = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
-        if (ip === connection) return d.id
+        if (ip === connection) 
+          return d.id
       }
     }
     return null
@@ -59,9 +77,9 @@
         } else {
           try {
             await fetch(`${BACKEND_URL}/api/devices/${deviceId}/do`, {
-              method:  'POST',
+              method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body:    JSON.stringify({ pin: item.pin, state: state === 'on', canvasId: item.id }),
+              body: JSON.stringify({ pin: item.pin, state: state === 'on', canvasId: item.id }),
             })
           } catch (e) {
             addLog(`Relay command failed: ${e.message}`, LOG_LEVELS.Warning)
@@ -73,14 +91,14 @@
   }
 
   async function toggleCollisionSim() {
-    const item        = props.item
+    const item = props.item
     const nowTriggered = item.value !== 'Collision!'
-    const endpoint    = nowTriggered ? 'trigger' : 'release'
-    item.value        = nowTriggered ? 'Collision!' : 'No Contact'
+    const endpoint = nowTriggered ? 'trigger' : 'release'
+    item.value = nowTriggered ? 'Collision!' : 'No Contact'
 
     try {
       await fetch(`${BACKEND_URL}/api/simulate/di/${item.id}/${endpoint}`, {
-        method:  'POST',
+        method: 'POST',
         headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
       })
     } catch (e) {
@@ -90,50 +108,25 @@
 </script>
 
 <template>
-  <div
-    class="sensor-tile"
-    :class="{ editable: isEditMode, selected: isSelected }"
-    :style="{
-      left:       item.x + 'px',
-      top:        item.y + 'px',
-      background: item.color || 'var(--bg-sensor-tile)',
-    }"
-    @mousedown="emit('drag-start', $event)"
-    @click.stop="isEditMode && emit('select')"
-  >
+  <div class="sensor-tile" :class="{ editable: isEditMode, selected: isSelected }" :style="tileStyle"
+    @mousedown="emit('drag-start', $event)" @click.stop="isEditMode && emit('select')">
     <div class="sensor-tile-name" :style="{ color: item.textColor || null }">{{ item.name }}</div>
 
     <!-- Relay: ON / OFF radio buttons -->
     <template v-if="item.driver === DRIVERS.Relay">
       <div class="relay-controls" @mousedown.stop @click.stop>
-        <label
-          class="relay-label"
-          :class="{ 'relay-disabled': !canOperate || isRecipeRelay(item) }"
-          :style="{ color: item.textColor || null }"
-        >
-          <input
-            type="radio"
-            :name="'relay-' + item.id"
-            value="on"
-            :checked="item.relayState === 'on'"
-            :disabled="!canOperate || isRecipeRelay(item)"
-            @change="handleRelayChange('on')"
-          /> ON
+        <label class="relay-label" :class="{ 'relay-disabled': !canOperate || isRecipeRelay(item) }" 
+        :style="{ color: item.textColor || null }">
+          <input type="radio" :name="'relay-' + item.id" value="on" :checked="item.relayState === 'on'" :disabled="!canOperate || isRecipeRelay(item)"
+            @change="handleRelayChange('on')"/> 
+            ON
         </label>
 
-        <label
-          class="relay-label"
-          :class="{ 'relay-disabled': !canOperate || isRecipeRelay(item) }"
-          :style="{ color: item.textColor || null }"
-        >
-          <input
-            type="radio"
-            :name="'relay-' + item.id"
-            value="off"
-            :checked="item.relayState !== 'on'"
-            :disabled="!canOperate || isRecipeRelay(item)"
-            @change="handleRelayChange('off')"
-          /> OFF
+        <label class="relay-label" :class="{ 'relay-disabled': !canOperate || isRecipeRelay(item) }" 
+        :style="{ color: item.textColor || null }">
+          <input type="radio" :name="'relay-' + item.id" value="off" :checked="item.relayState !== 'on'"
+            :disabled="!canOperate || isRecipeRelay(item)" @change="handleRelayChange('off')"/> 
+            OFF
         </label>
       </div>
       <div v-if="item.connection === DRIVERS.Simulated" class="sim-badge">SIM</div>
@@ -141,21 +134,13 @@
 
     <!-- Collision Detector -->
     <template v-else-if="item.driver === DRIVERS.CollisionDetector">
-      <div
-        class="collision-state"
-        :style="{ color: item.textColor || (item.value === 'Collision!' ? '#ff5252' : '#69f0ae') }"
-      >
+      <div class="collision-state" :style="{ color: item.textColor || (item.value === 'Collision!' ? '#ff5252' : '#69f0ae') }">
         <span class="collision-dot" />
         {{ item.value ?? 'No Contact' }}
       </div>
 
-      <button
-        v-if="item.connection === DRIVERS.Simulated && canOperate"
-        class="sim-trigger-btn"
-        :class="{ 'sim-trigger-btn--active': item.value === 'Collision!' }"
-        @mousedown.stop
-        @click.stop="toggleCollisionSim"
-      >
+      <button v-if="item.connection === DRIVERS.Simulated && canOperate" class="sim-trigger-btn"
+        :class="{ 'sim-trigger-btn--active': item.value === 'Collision!' }" @mousedown.stop @click.stop="toggleCollisionSim">
         {{ item.value === 'Collision!' ? 'Release' : 'Trigger' }}
       </button>
       <div v-if="item.connection === DRIVERS.Simulated" class="sim-badge">SIM</div>

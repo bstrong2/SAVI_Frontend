@@ -1,17 +1,29 @@
 <script setup>
   import { PICKER_TYPES } from '../constants/picker.js'
 
+  /////////////////////////////////////////////
+  // Define variables.
   const props = defineProps({
     // Added validation to this just in case someone still uses a string somewhere, just want to make sure that there is a check so the console will output a warning to for the developer.
     type: { type: String, required: true, validator: (val) => Object.values(PICKER_TYPES).includes(val) },
     show: { type: Boolean, default: false },
-    colors: { type: Array,   required: true },
-    modelValue: { type: String,  default: null },
-    previewStyle: { type: Object,  default: () => ({}) },
+    colors: { type: Array,  required: true },
+    modelValue: { type: String, default: null },
+    previewStyle: { type: Object, default: () => ({}) },
   })
 
+  // define emits
   const emit = defineEmits(['toggle', 'pick', 'confirm', 'cancel', 'auto'])
 
+  
+  /////////////////////////////////////////////
+  // Defining all functions.
+  function swatchStyle(c) {
+    return {
+      background: c,
+      borderColor: c === '#ffffff' ? '#ccc' : 'transparent',
+    }
+  }
 </script>
 
 <template>
@@ -23,7 +35,7 @@
     <div v-if="show" class="color-picker-popup">
       <div class="color-swatches">
         <button v-for="c in colors" :key="c" class="color-swatch" :class="{ active: modelValue === c }"
-          :style="{ background: c, borderColor: c === '#ffffff' ? '#ccc' : 'transparent' }" @click="emit('pick', c)"
+          :style="swatchStyle(c)" @click="emit('pick', c)"
         />
       </div>
       <div class="color-picker-footer">

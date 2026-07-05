@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { PERMISSIONS, canAccess } from '../auth/roles.js'
 import { RUN_COMMANDS, OTHER_COMMANDS } from '../constants/commands.js'
+import { RUN_STATUS } from '../constants/runStatus.js'
 
 /////////////////////////////////////////////
 // Define variables.
@@ -11,7 +12,7 @@ const props = defineProps({
   statusColor: String,
   isDark: Boolean,
   currentUser: Object,
-  runState: { type: String, default: 'idle' },
+  runState: { type: String, default: RUN_STATUS.Idle },
 })
 
 // Define what buttons are available based on what user level is logged in.
@@ -32,11 +33,11 @@ const emit = defineEmits(['navigate', 'run-command', 'other-command', 'toggle-th
 
 // Determine if buttons in the log details view should show up.
 // Derived from parent-controlled runState prop, will change during run time so need to have this as computed.
-const showStart = computed(() => props.runState == 'idle')
-const showLogOnly = computed(() => props.runState == 'idle')
-const showPause = computed(() => props.runState == 'running')
-const showResume = computed(() => props.runState == 'paused')
-const showStop = computed(() => props.runState == 'running' || props.runState == 'paused')
+const showStart   = computed(() => props.runState === RUN_STATUS.Idle)
+const showLogOnly = computed(() => props.runState === RUN_STATUS.Idle)
+const showPause   = computed(() => props.runState === RUN_STATUS.Running)
+const showResume  = computed(() => props.runState === RUN_STATUS.Paused)
+const showStop    = computed(() => props.runState === RUN_STATUS.Running || props.runState === RUN_STATUS.Paused)
 
 const isAdmin    = computed(() => canAccess(props.currentUser, PERMISSIONS.AdminOnly))
 const canOperate = computed(() => canAccess(props.currentUser, PERMISSIONS.OperatorOnly))

@@ -16,21 +16,21 @@ import { LOG_LEVELS } from './constants/logLevels.js'
 import { PERMISSIONS, canAccess } from './auth/roles.js'
 import { RUN_COMMANDS, OTHER_COMMANDS } from './constants/commands.js'
 import { ITEM_TYPES, DRIVERS, DEVICE_TYPES, DEVICE_PROPS } from './constants/devices.js'
+import { RUN_STATUS } from './constants/runStatus.js'
 
 const BACKEND_URL = inject('BACKEND_URL')
+const appConfig   = inject('appConfig', {})
 
 const connection       = ref(null)
 const connectionStatus = ref('Disconnected')
 const activeView       = ref('device-layout')
 const logEntries       = ref([])
 const generalSettings  = ref({
-  host:            'localhost',
-  port:            5176,
-  reconnectOnLoss: true,
-  logLevel:        'Info',
-  maxEntries:      1000,
-  autoScroll:      true,
-  timeoutMs:       5000,
+  reconnectOnLoss: appConfig.reconnectOnLoss ?? true,
+  logLevel:        appConfig.logLevel        ?? 'Info',
+  maxEntries:      appConfig.maxEntries      ?? 1000,
+  autoScroll:      appConfig.autoScroll      ?? true,
+  timeoutMs:       appConfig.timeoutMs       ?? 5000,
 })
 const maxLogEntries = computed(() => generalSettings.value.maxEntries)
 const isDark              = ref(false)
@@ -45,7 +45,7 @@ const loginError     = ref('')
 const loginLoading   = ref(false)
 
 // Run state — owned here so the Start dialog can gate the transition
-const runState = ref('idle')   // 'idle' | 'running' | 'paused'
+const runState = ref(RUN_STATUS.Idle)
 
 // Run info populated on Start confirm; provided to LoggingDetails
 const runInfo  = ref(null)     // { startedBy, startedAt, notes, recipeName, status, dbRunId, selectedSensors }
@@ -130,7 +130,7 @@ let lastChartPlotMs = 0
 watch(
   [runState, runInfo],
   ([state, info]) => {
-    if (state !== 'idle' && info) {
+    if (state !== RUN_STATUS.Idle && info) {
       localStorage.setItem('savi-run', JSON.stringify({ runState: state, runInfo: info }))
     } else {
       localStorage.removeItem('savi-run')
@@ -241,7 +241,7 @@ async function restoreRunState() {
     const response = await fetch(`${BACKEND_URL}/api/runs/${dbRunId}`)
     if (response.ok) {
       const data = await response.json()
-      if (data.status === 'Running') {
+      if (data.status === RUN_STATUS.Running) {
         runInfo.value  = savedInfo
         runState.value = savedState
         addLog(`Run #${dbRunId} restored — logging is active`, LOG_LEVELS.Info)
@@ -419,7 +419,7 @@ onMounted(async () => {
     }
 
     // ── Chart data update (log-only mode, not paused) ───────────────────────
-    if (loggedSensors.value.length === 0 || runState.value !== 'running') return
+    if (loggedSensors.value.length === 0 || runState.value !== RUN_STATUS.Running) return
 
     const nowMs = Date.now()
     if (nowMs - lastChartPlotMs < chartPlotInterval.value * 1000) return
@@ -559,7 +559,7 @@ async function executeRecipe(recipe, doSensor, diSensor) {
   const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
   addLog(`Executing recipe: ${recipe.name} (${recipe.steps.length} steps)`, LOG_LEVELS.Info)
   for (const step of recipe.steps) {
-    if (runState.value !== 'running') break
+    if (runState.value !== RUN_STATUS.Running) break
     if (step.action === 'relay/on')  await callRelay(doSensor, true)
     if (step.action === 'relay/off') await callRelay(doSensor, false)
     // 'wait' and 'di/read' — DI state is live via SignalR, just observe the delay
@@ -567,7 +567,7 @@ async function executeRecipe(recipe, doSensor, diSensor) {
   }
   // Ensure relay is off at end of recipe
   if (doSensor) await callRelay(doSensor, false)
-  if (runState.value === 'running') {
+  if (runState.value === RUN_STATUS.Running) {
     addLog(`Recipe complete — stopping run`, LOG_LEVELS.Info)
     handleRunCommand(RUN_COMMANDS.Stop)
   }
@@ -584,12 +584,12 @@ async function handleRunCommand(cmd) {
     return
   }
 
-  if (cmd === RUN_COMMANDS.Pause)  runState.value = 'paused'
-  if (cmd === RUN_COMMANDS.Resume) runState.value = 'running'
+  if (cmd === RUN_COMMANDS.Pause)  runState.value = RUN_STATUS.Paused
+  if (cmd === RUN_COMMANDS.Resume) runState.value = RUN_STATUS.Running
   if (cmd === RUN_COMMANDS.Stop) {
     const dbRunId = runInfo.value?.dbRunId
-    runState.value = 'idle'
-    if (runInfo.value) runInfo.value = { ...runInfo.value, status: 'Stopped', selectedSensors: [] }
+    runState.value = RUN_STATUS.Idle
+    if (runInfo.value) runInfo.value = { ...runInfo.value, status: RUN_STATUS.Stopped, selectedSensors: [] }
     if (dbRunId) {
       fetch(`${BACKEND_URL}/api/run/${dbRunId}/stop`, {
         method:  'POST',
@@ -618,13 +618,13 @@ async function handleStartConfirmed(info) {
     }).catch(e => addLog(`Sensor pre-registration failed: ${e.message}`, LOG_LEVELS.Warning))
   }
 
-  runState.value = 'running'
+  runState.value = RUN_STATUS.Running
   runInfo.value  = {
     startedBy:       info.startedBy,
     startedAt:       new Date().toLocaleTimeString(),
     notes:           info.notes,
     recipeName:      info.recipeName,
-    status:          'Running',
+    status:          RUN_STATUS.Running,
     dbRunId:         null,
     selectedSensors: recipeSensors,
     doSensorId:      info.doSensor?.id ?? null,
@@ -667,13 +667,13 @@ async function handleStartConfirmed(info) {
 }
 
 async function handleLogOnlyConfirmed(info) {
-  runState.value = 'running'
+  runState.value = RUN_STATUS.Running
   runInfo.value  = {
     startedBy:       info.startedBy,
     startedAt:       new Date().toLocaleTimeString(),
     notes:           info.notes,
     recipeName:      null,
-    status:          'Logging (No Recipe)',
+    status:          RUN_STATUS.Logging,
     selectedSensors: info.selectedSensors,   // [{ id, name, driver, connection, unit }]
     dbRunId:         null,
   }

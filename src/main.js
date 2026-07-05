@@ -73,6 +73,7 @@ fetch('/config/settings.json')
   .then(config => {
     createApp(App)
       .provide('BACKEND_URL', config.backendUrl)
+      .provide('appConfig',   config)
       .component('font-awesome-icon', FontAwesomeIcon)
       .mount('#app')
   })

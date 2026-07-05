@@ -1,3 +1,8 @@
 {
-  "backendUrl": "http://localhost:5176"
+  "backendUrl": "http://localhost:5176",
+  "reconnectOnLoss": true,
+  "logLevel": "Info",
+  "maxEntries": 1000,
+  "autoScroll": true,
+  "timeoutMs": 5000
 }

@@ -1,7 +1,8 @@
 ﻿<script setup>
-  import { ref, computed, inject, watch, onMounted, onUnmounted } from 'vue'
+  import { ref, computed, inject, watch, onUnmounted } from 'vue'
   import { LOG_LEVELS } from '../../constants/logLevels.js'
   import { ITEM_TYPES } from '../../constants/devices.js'
+  import { RUN_STATUS } from '../../constants/runStatus.js'
   import { Line } from 'vue-chartjs'
   import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler } from 'chart.js'
 
@@ -10,7 +11,6 @@
   /////////////////////////////////////////////
   // Define variables.
   const selectedSensorId = ref(null)
-  const showLegend = ref(false)
   const MAX_POINTS = 120
   const CHART_PALETTE = [
     '#007ACC', '#e64a19', '#388e3c', '#7b1fa2',
@@ -30,6 +30,8 @@
 
   /////////////////////////////////////////////
   // Define computed properties.
+
+  // Having this as it makes the code a little easier to read when we do this.
   const isLogOnlyMode = computed(() => loggedSensors.value.length > 0)
 
   const allCanvasSensors = computed(() =>
@@ -43,17 +45,16 @@
 
   const startedBy = computed(() => runInfo?.value?.startedBy ?? '—')
   const startedAt = computed(() => runInfo?.value?.startedAt ?? '—')
-  const status = computed(() => runInfo?.value?.status ?? 'Idle')
+  const status = computed(() => runInfo?.value?.status ?? RUN_STATUS.Idle)
 
-  // Does NOT read chartData directly — avoids triggering a simultaneous options+data change
-  // that would cause vue-chartjs to reinitialise the chart on every broadcast tick.
-  const chartOptions = computed(() => ({
+  // Having a constant for the chart values, can make it computed if things need to be changed in the settings later.
+  const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
     animation: { duration: 0 },
     plugins: {
       legend: {
-        display: showLegend.value,
+        display: true,
         labels:  { font: { size: 11 } },
       },
     },
@@ -71,11 +72,8 @@
         ticks: { font: { size: 10 } },
       },
     },
-  }))
+  }
 
-  const hasData = computed(() =>
-    chartData.value.datasets.some(ds => ds.data.length > 0)
-  )
 
 
   /////////////////////////////////////////////
@@ -85,47 +83,20 @@
       selectedSensorId.value = list[0]?.id ?? null
   }, { immediate: true })
 
-  // When a run's dbRunId first becomes available (API call completed after run start),
-  // load whatever readings exist so far as a baseline.
-  watch(() => runInfo.value?.dbRunId, async (newId, oldId) => {
-    if (newId && !oldId) 
+  // On mount and whenever dbRunId changes... Load the active run, or fall back to the most recent historical one.
+  watch(() => runInfo.value?.dbRunId, async (newId) => {
+    if (newId) {
       await loadChartFromDb(newId)
-  })
-
-  // When a run stops, reload from DB so the completed run's data appears on the chart.
-  watch(runState, async (newState, oldState) => {
-    if (newState === 'idle' && oldState !== 'idle') {
-      const dbRunId = runInfo?.value?.dbRunId
-      if (dbRunId) 
-        await loadChartFromDb(dbRunId)
-    }
-  })
-
-  // Tracks whether the legend should be shown — updated only when dataset count changes,
-  // not on every live-data push (avoids re-creating chartOptions on every tick).
-  watch(() => chartData.value.datasets.length, n => { showLegend.value = n > 1 }, { immediate: true })
-
-  // SimulatedSensorState is handled by App.vue (persistent across navigation).
-  watch(connection, (conn, prevConn) => {
-    prevConn?.off('SensorUpdate', handleSensorUpdate)
-    conn?.on(     'SensorUpdate', handleSensorUpdate)
-  }, { immediate: true })
-
-
-  /////////////////////////////////////////////
-  // Mounts
-  onMounted(async () => {
-    const dbRunId = runInfo.value?.dbRunId
-    if (dbRunId) {
-      // Run is active (or was just stopped): load its full readings from DB
-      await loadChartFromDb(dbRunId)
-    } else {
-      // No run in memory — show the most recent completed run from DB
+    } else if (runState.value === RUN_STATUS.Idle) {
       try {
         const response = await fetch(`${BACKEND_URL}/api/runs`)
+
         if (response.ok) {
           const runs = await response.json()
-          if (runs.length > 0) await loadChartFromDb(runs[0].id)
+          const run = runs.find(r => r.readingCount > 0)
+
+          if (run)
+            await loadChartFromDb(run.id)
         } else {
           addLog(`Failed to load runs (HTTP ${response.status})`, LOG_LEVELS.Warning)
         }
@@ -133,8 +104,26 @@
         addLog(`Failed to load runs: ${e.message}`, LOG_LEVELS.Warning)
       }
     }
+  }, { immediate: true })
+
+  // When a run stops, reload from DB so the completed run's data appears on the chart.
+  watch(runState, async (newState, oldState) => {
+    if (newState === RUN_STATUS.Idle && oldState !== RUN_STATUS.Idle) {
+      const dbRunId = runInfo?.value?.dbRunId
+
+      if (dbRunId) 
+        await loadChartFromDb(dbRunId)
+    }
   })
 
+  // Handle signalR during reconnects
+  watch(connection, (conn, prevConn) => {
+    prevConn?.off('SensorUpdate', handleSensorUpdate)
+    conn?.on('SensorUpdate', handleSensorUpdate)
+  }, { immediate: true })
+
+
+  // Disconnect the signalR.
   onUnmounted(() => {
     connection?.value?.off('SensorUpdate', handleSensorUpdate)
   })
@@ -151,7 +140,6 @@
   }
 
   function dbTimeToLabel(dbTime) {
-    // "2026-06-12 14:23:45" → "12/06 14:23:45" (matches live update label format)
     const [datePart, timePart] = dbTime.split(' ')
     const [, month, day] = datePart.split('-')
     return `${day}/${month} ${timePart}`
@@ -160,6 +148,8 @@
   async function loadChartFromDb(runId) {
     try {
       const response = await fetch(`${BACKEND_URL}/api/runs/${runId}`)
+
+      // If we don't get a good response back then don't graph any data.
       if (!response.ok) {
         addLog(`Failed to load run data (HTTP ${response.status})`, LOG_LEVELS.Warning)
         return
@@ -170,34 +160,43 @@
       if (readings.length === 0) 
         return
 
-      // Build per-sensor lookup: name → { label → value }
       const byName = {}
-      for (const rd of readings) {
-        const label = dbTimeToLabel(rd.insertTime)
-        if (!byName[rd.sensorName]) byName[rd.sensorName] = {}
-        byName[rd.sensorName][label] = rd.value
-      }
+      const labelSet = new Set()
 
-      // Unique time labels in chronological order, capped at MAX_POINTS
-      let allLabels = [...new Set(readings.map(rd => dbTimeToLabel(rd.insertTime)))]
-      if (allLabels.length > MAX_POINTS) 
-        allLabels = allLabels.slice(-MAX_POINTS)
+      // The graph should only display the amount of data that we have in the max points setting...
+      // For that reason take the data that was aquired through the database iterate over it and only load that
+      // part into the list so we can display it.
+      for (let i = readings.length - 1; i >= 0; i--) {
+
+        const rd = readings[i]
+        const label = dbTimeToLabel(rd.insertTime)
+        labelSet.add(label)
+
+        if (!byName[rd.sensorName])
+          byName[rd.sensorName] = {}
+
+        byName[rd.sensorName][label] = rd.value
+
+        if (labelSet.size === MAX_POINTS) 
+          break
+      }
+      const allLabels = [...labelSet].reverse()
 
       const currentDatasets = chartData.value.datasets
       const hasNameMatch = currentDatasets.some(ds => byName[ds.label] != null)
 
-      if (hasNameMatch) {
-        // Active / just-stopped run: overlay DB data onto existing datasets.
-        // Preserves ds.sensorId so App.vue live updates continue to work.
+      // Check to see if we are currently doing a run.
+      if (details.status === RUN_STATUS.Running && hasNameMatch) {
+
         chartData.value = {
-          labels:   allLabels,
+          labels: allLabels,
           datasets: currentDatasets.map(ds => ({
             ...ds,
             data: allLabels.map(t => byName[ds.label]?.[t] ?? null),
           })),
         }
       } else {
-        // Idle / historical: build fresh datasets from DB readings
+        // No run is going, display just the database data.
         const names = Object.keys(byName)
         chartData.value = {
           labels:   allLabels,
@@ -223,9 +222,10 @@
     return `${p(d.getDate())}/${p(d.getMonth() + 1)} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`
   }
 
-  // Immutable array replacement so Chart.js always sees fresh references.
-  // Only used when a recipe is running (not in log-only mode).
+  // Function to be run when a value gets passed through signalR. This will handle the shifting of the data
+  // for the chart as well.
   function handleSensorUpdate(sensorId, value) {
+
     if (isLogOnlyMode.value)
       return
 
@@ -237,15 +237,15 @@
       return
 
     const newLabels = [...chartData.value.labels, fmtDateTime()]
-    const newData   = [...ds.data, value]
+    const newData = [...ds.data, value]
 
     if (newLabels.length > MAX_POINTS) 
       newLabels.shift()
-    if (newData.length   > MAX_POINTS) 
+    if (newData.length > MAX_POINTS) 
       newData.shift()
 
     chartData.value = {
-      labels:   newLabels,
+      labels: newLabels,
       datasets: [{ ...ds, data: newData }],
     }
   }
@@ -259,7 +259,7 @@
       <div class="chart-container">
         <Line :data="chartData" :options="chartOptions" />
       </div>
-      <div v-if="!hasData" class="chart-empty">
+      <div v-if="!chartData.datasets.some(ds => ds.data.length > 0)" class="chart-empty">
         {{
           isLogOnlyMode
             ? 'Logging started — waiting for first data point…'
@@ -310,12 +310,6 @@
     text-align: center;
   }
 
-  /*
-   * ==========================================
-   * Logging Details layout
-   * ==========================================
-   */
-
   /* Outer flex row: chart on the left, run info panel on the right. */
   .logging-details {
     display: flex;
@@ -324,7 +318,7 @@
   }
 
   /* Flex column that fills all space to the left of the run info panel,
-     containing the chart with a relative position for the empty-state overlay. */
+     containing the chart with a relative position for the empty state overlay. */
   .details-center {
     flex: 1;
     display: flex;
@@ -342,7 +336,7 @@
     min-height: 0;
   }
 
-  /* Fixed-width right panel showing run metadata (started by, started at, status). */
+  /* Fixed width right panel showing run metadata (started by, started at, status). */
   .details-right {
     width: 190px;
     flex-shrink: 0;
@@ -350,7 +344,9 @@
     border-left: 1px solid var(--border-color);
     overflow-y: auto;
   }
-  .details-right .form-field { margin-bottom: 12px; }
+  .details-right .form-field {
+     margin-bottom: 12px; 
+    }
   /* Small muted label above each read-only field in the run info panel. */
   .details-right label {
     display: block;

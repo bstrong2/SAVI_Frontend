@@ -1,5 +1,4 @@
 <script setup>
-// Recipe view — layout stub only, no logic implemented yet.
 </script>
 
 <template>
@@ -14,7 +13,6 @@
 
     <div class="recipe-body">
 
-      <!-- ── Left panel: sensor lists ── -->
       <div class="recipe-left-panel">
 
         <!-- Recipes -->
@@ -58,7 +56,6 @@
 
       </div>
 
-      <!-- ── Right panel: segment grid ── -->
       <div class="recipe-right-panel">
         <div class="recipe-grid-wrapper">
           <table class="recipe-grid">
@@ -140,14 +137,12 @@
     overflow: hidden;
   }
 
-  /* ── Body ── */
   .recipe-body {
     display: flex;
     flex: 1;
     overflow: hidden;
   }
 
-  /* ── Left panel ── */
   .recipe-left-panel {
     width: 220px;
     min-width: 160px;
@@ -189,7 +184,6 @@
     padding-left: 14px; 
   }
 
-  /* ── Right panel ── */
   .recipe-right-panel {
     flex: 1;
     display: flex;
@@ -202,7 +196,6 @@
     overflow: auto;
   }
 
-  /* ── Segment grid ── */
   .recipe-grid {
     border-collapse: collapse;
     font-size: 12px;

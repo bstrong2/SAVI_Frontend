@@ -5,36 +5,27 @@
 
 
   /////////////////////////////////////////////
-  // Inject needed data for this view.
-  const BACKEND_URL       = inject('BACKEND_URL')
-  const authToken         = inject('authToken')
-  const addLog            = inject('addLog')
-  const chartPlotInterval = inject('chartPlotInterval', ref(3))
-  const saveAppSettings   = inject('saveAppSettings', () => {})
-  const generalSettings   = inject('generalSettings', ref({
-    host: 'localhost', port: 5176, reconnectOnLoss: true,
-    logLevel: 'Info', maxEntries: 1000, autoScroll: true, timeoutMs: 5000,
-  }))
-  const devices = inject('devices')
-
-
-  /////////////////////////////////////////////
   // Define variables.
+  const BACKEND_URL = inject('BACKEND_URL')
+  const authToken = inject('authToken')
+  const addLog = inject('addLog')
+  const chartPlotInterval = inject('chartPlotInterval', ref(3))
+  const saveAppSettings = inject('saveAppSettings', () => {})
+  const generalSettings = inject('generalSettings')
+  const devices = inject('devices')
 
   // Table-driven UI model — each row defines the display metadata (name, description,
   // group, type) for one setting. Values are seeded from generalSettings and written
   // back to it via the watch below whenever the user edits a row.
   const settings = ref([
-    { id: 1,  depth: 0, name: 'Connection',        value: '',                                    description: 'Connection settings',              type: 'group',  expanded: true },
-    { id: 2,  depth: 1, name: 'Host',              value: generalSettings.value.host,            description: 'Backend host address',             type: 'string', editing: false },
-    { id: 3,  depth: 1, name: 'Port',              value: generalSettings.value.port,            description: 'Backend port number',              type: 'int',    editing: false },
-    { id: 4,  depth: 1, name: 'Reconnect on Loss', value: generalSettings.value.reconnectOnLoss, description: 'Auto-reconnect when disconnected', type: 'bool',   editing: false },
-    { id: 5,  depth: 0, name: 'Logging',           value: '',                                    description: 'Logging settings',                 type: 'group',  expanded: true },
-    { id: 6,  depth: 1, name: 'Log Level',         value: generalSettings.value.logLevel,        description: 'Minimum log level to display',     type: 'string', editing: false },
-    { id: 7,  depth: 1, name: 'Max Entries',       value: generalSettings.value.maxEntries,      description: 'Maximum log rows to keep in view', type: 'int',    editing: false },
-    { id: 8,  depth: 1, name: 'Auto Scroll',       value: generalSettings.value.autoScroll,      description: 'Auto-scroll log to newest entry',  type: 'bool',   editing: false },
-    { id: 9,  depth: 0, name: 'Acquisition',       value: '',                                    description: 'Data acquisition settings',        type: 'group',  expanded: true },
-    { id: 11, depth: 1, name: 'Timeout (ms)',      value: generalSettings.value.timeoutMs,       description: 'Sensor read timeout',              type: 'int',    editing: false },
+    { id: 1, depth: 0, name: 'Connection', value: '', description: 'Connection settings', type: 'group', expanded: true },
+    { id: 4, depth: 1, name: 'Reconnect on Loss', value: generalSettings.value.reconnectOnLoss, description: 'Auto-reconnect when disconnected', type: 'bool', editing: false },
+    { id: 5, depth: 0, name: 'Logging', value: '', description: 'Logging settings', type: 'group',  expanded: true },
+    { id: 6, depth: 1, name: 'Log Level', value: generalSettings.value.logLevel, description: 'Minimum log level to display', type: 'string', editing: false },
+    { id: 7, depth: 1, name: 'Max Entries', value: generalSettings.value.maxEntries, description: 'Maximum log rows to keep in view', type: 'int', editing: false },
+    { id: 8, depth: 1, name: 'Auto Scroll', value: generalSettings.value.autoScroll, description: 'Auto-scroll log to newest entry', type: 'bool', editing: false },
+    { id: 9, depth: 0, name: 'Acquisition', value: '', description: 'Data acquisition settings', type: 'group',  expanded: true },
+    { id: 11, depth: 1, name: 'Timeout (ms)', value: generalSettings.value.timeoutMs, description: 'Sensor read timeout', type: 'int', editing: false },
   ])
 
   const dcExpanded = ref(true)
@@ -43,17 +34,23 @@
   // Snapshot-based dirty detection — stores values at last save/load.
   // unsavedChanges is a computed so it clears automatically when the user restores a value.
   const savedSettingsValues = ref(settings.value.map(s => ({ id: s.id, value: s.value })))
-  const savedDevicesJson    = ref(null)   // baselined in onMounted after App.vue fetches complete
-  const savedPlotInterval   = ref(chartPlotInterval.value)
+  const savedDevicesJson = ref(null)   // baselined in onMounted after App.vue fetches complete
+  const savedPlotInterval = ref(chartPlotInterval.value)
 
   const context = ref({ visible: false, x: 0, y: 0, mode: null, target: null })
 
 
   /////////////////////////////////////////////
   // Define computed properties.
+  const contextMenuStyle = computed(() => ({ 
+    top: context.value.y + 'px', 
+    left: context.value.x + 'px' 
+  }))
+
   const visibleSettings = computed(() => {
     const result = []
     let currentGroupExpanded = true
+
     for (const s of settings.value) {
       if (s.type === 'group') {
         currentGroupExpanded = s.expanded
@@ -89,10 +86,14 @@
   )
 
   const unsavedChanges = computed(() => {
-    if (chartPlotInterval.value !== savedPlotInterval.value) return true
+    if (chartPlotInterval.value !== savedPlotInterval.value) 
+      return true
+
     for (const saved of savedSettingsValues.value) {
       const cur = settings.value.find(s => s.id === saved.id)
-      if (cur && String(cur.value) !== String(saved.value)) return true
+
+      if (cur && String(cur.value) !== String(saved.value)) 
+        return true
     }
     return devicesSnapshot.value !== savedDevicesJson.value
   })
@@ -106,14 +107,15 @@
   watch(settings, (rows) => {
     const g = generalSettings.value
     const v = id => rows.find(s => s.id === id)?.value
+
     generalSettings.value = {
-      host:            v(2)  ?? g.host,
-      port:            Number(v(3))  || g.port,
+      host: v(2)  ?? g.host,
+      port: Number(v(3))  || g.port,
       reconnectOnLoss: v(4)  ?? g.reconnectOnLoss,
-      logLevel:        v(6)  ?? g.logLevel,
-      maxEntries:      Number(v(7))  || g.maxEntries,
-      autoScroll:      v(8)  ?? g.autoScroll,
-      timeoutMs:       Number(v(11)) || g.timeoutMs,
+      logLevel: v(6)  ?? g.logLevel,
+      maxEntries: Number(v(7))  || g.maxEntries,
+      autoScroll: v(8)  ?? g.autoScroll,
+      timeoutMs: Number(v(11)) || g.timeoutMs,
     }
   }, { deep: true })
 
@@ -123,7 +125,7 @@
   onMounted(() => {
     window.addEventListener('click', hideContext)
     // Re-baseline after App.vue's async startup fetches have completed
-    savedDevicesJson.value  = devicesSnapshot.value
+    savedDevicesJson.value = devicesSnapshot.value
     savedPlotInterval.value = chartPlotInterval.value
   })
 
@@ -134,31 +136,39 @@
   // Defining all functions.
   function updateSavedSnapshot() {
     savedSettingsValues.value = settings.value.map(s => ({ id: s.id, value: s.value }))
-    savedDevicesJson.value    = devicesSnapshot.value
-    savedPlotInterval.value   = chartPlotInterval.value
+    savedDevicesJson.value = devicesSnapshot.value
+    savedPlotInterval.value = chartPlotInterval.value
   }
 
   function showContext(e, mode, target) {
     e.preventDefault()
     e.stopPropagation()
-    context.value = { visible: true, x: e.clientX, y: e.clientY, mode, target }
+    context.value = { 
+      visible: true, 
+      x: e.clientX, 
+      y: e.clientY, 
+      mode, 
+      target 
+    }
   }
 
-  function hideContext() { context.value.visible = false }
+  function hideContext() { 
+    context.value.visible = false 
+  }
 
   function addDevice(type) {
     const id = nextDevId++
     devices.value.push(
       type === DEVICE_TYPES.Com
         ? { id, name: 'COM Device', type: DEVICE_TYPES.Com, expanded: true, properties: [
-              { name: DEVICE_PROPS.DeviceName, value: '',     description: 'Friendly name for this device', propType: 'string', editing: false },
-              { name: DEVICE_PROPS.ComPort,    value: '',     description: 'COM port (e.g., COM1)',          propType: 'string', editing: false },
-              { name: DEVICE_PROPS.BaudRate,   value: '9600', description: 'Baud rate for communication',    propType: 'int',    editing: false },
+              { name: DEVICE_PROPS.DeviceName, value: '', description: 'Friendly name for this device', propType: 'string', editing: false },
+              { name: DEVICE_PROPS.ComPort, value: '', description: 'COM port (e.g., COM1)', propType: 'string', editing: false },
+              { name: DEVICE_PROPS.BaudRate, value: '9600', description: 'Baud rate for communication', propType: 'int', editing: false },
             ] }
         : { id, name: 'IP Device', type: DEVICE_TYPES.Ip, expanded: true, properties: [
-              { name: DEVICE_PROPS.DeviceName, value: '',    description: 'Friendly name for this device',  propType: 'string', editing: false },
-              { name: DEVICE_PROPS.IpAddress,  value: '',    description: 'IP address of the device',       propType: 'string', editing: false },
-              { name: DEVICE_PROPS.PortNumber, value: '502', description: 'Port number for connection',     propType: 'int',    editing: false },
+              { name: DEVICE_PROPS.DeviceName, value: '', description: 'Friendly name for this device', propType: 'string', editing: false },
+              { name: DEVICE_PROPS.IpAddress, value: '',  description: 'IP address of the device', propType: 'string', editing: false },
+              { name: DEVICE_PROPS.PortNumber, value: '502', description: 'Port number for connection', propType: 'int', editing: false },
             ] }
     )
     hideContext()
@@ -174,22 +184,34 @@
     prop.editing = true
     nextTick(() => {
       const el = document.querySelector('.dev-prop-editing input')
-      if (el) { el.focus(); el.select?.() }
+
+      if (el) { 
+        el.focus(); el.select?.() 
+      }
     })
   }
 
-  function stopDevEdit(prop) { prop.editing = false }
-
-  function devEditKey(e, prop) {
-    if (e.key === 'Enter' || e.key === 'Escape') stopDevEdit(prop)
+  function stopDevEdit(prop) {
+    prop.editing = false 
   }
 
-  function startEdit(s) { if (s.type !== 'group') s.editing = true }
+  function devEditKey(e, prop) {
+    if (e.key === 'Enter' || e.key === 'Escape') 
+      stopDevEdit(prop)
+  }
 
-  function stopEdit(s) { s.editing = false }
+  function startEdit(s) { 
+    if (s.type !== 'group') 
+      s.editing = true 
+  }
+
+  function stopEdit(s) { 
+    s.editing = false 
+  }
 
   function handleKeyDown(e, s) {
-    if (e.key === 'Enter' || e.key === 'Escape') stopEdit(s)
+    if (e.key === 'Enter' || e.key === 'Escape') 
+      stopEdit(s)
   }
 
   async function saveSettings() {
@@ -219,9 +241,12 @@
   async function loadSettings() {
     try {
       const response = await fetch(`${BACKEND_URL}/api/devices`)
+      
       if (response.ok) {
         const data = await response.json()
-        if (data.devices?.length) devices.value = data.devices
+
+        if (data.devices?.length) 
+          devices.value = data.devices
       } else {
         addLog?.(`Failed to load settings (HTTP ${response.status})`, LOG_LEVELS.Warning)
       }
@@ -252,8 +277,7 @@
         <tbody>
           <!-- ── General settings rows ── -->
           <tr v-for="s in visibleSettings" :key="s.id" :class="{ 'settings-group-row': s.type === 'group' }"
-            :style="s.type === 'group' ? { cursor: 'pointer' } : {}"
-            @click="s.type === 'group' ? s.expanded = !s.expanded : null">
+            :style="s.type === 'group' ? { cursor: 'pointer' } : {}" @click="s.type === 'group' ? s.expanded = !s.expanded : null">
             <td>
               <span class="depth-indent" :style="{ width: s.depth * 20 + 'px' }" />
               <span v-if="s.type === 'group'" class="dc-toggle">{{ s.expanded ? '▾' : '▸' }}</span>
@@ -267,15 +291,13 @@
               <template v-else>
                 <span v-if="!s.editing" style="cursor:pointer">{{ s.value }}</span>
                 <input v-else :type="s.type === 'int' ? 'number' : 'text'" v-model="s.value" @blur="stopEdit(s)"
-                  @keydown="handleKeyDown($event, s)"
-                  style="width:100%"
-                  autofocus/>
+                  @keydown="handleKeyDown($event, s)" style="width:100%" autofocus/>
               </template>
             </td>
             <td>{{ s.description }}</td>
           </tr>
 
-          <!-- ── Device Connections section ── -->
+          <!-- Device Connections section -->
           <!-- Root row -->
           <tr class="settings-group-row dc-root-row" style="cursor:pointer" @click.stop="dcExpanded = !dcExpanded"
             @contextmenu="e => showContext(e, 'category', null)">
@@ -289,8 +311,7 @@
           <template v-if="dcExpanded">
             <template v-for="device in devices" :key="device.id">
               <!-- Device row -->
-              <tr class="dc-device-row" style="cursor:pointer" @click.stop="device.expanded = !device.expanded"
-                @contextmenu="e => showContext(e, 'device', device)">
+              <tr class="dc-device-row" style="cursor:pointer" @click.stop="device.expanded = !device.expanded" @contextmenu="e => showContext(e, 'device', device)">
                 <td colspan="3">
                   <span class="depth-indent" style="width:20px" />
                   <span class="dc-toggle">{{ device.expanded ? '▾' : '▸' }}</span>
@@ -309,9 +330,7 @@
                   <td @dblclick.stop="startDevEdit(prop)">
                     <span v-if="!prop.editing" style="cursor:text">{{ prop.value }}</span>
                     <input v-else :type="prop.propType === 'int' ? 'number' : 'text'" v-model="prop.value" @blur="stopDevEdit(prop)"
-                      @keydown="devEditKey($event, prop)"
-                      style="width:100%"
-                      autofocus/>
+                      @keydown="devEditKey($event, prop)" style="width:100%" autofocus/>
                   </td>
                   <td>{{ prop.description }}</td>
                 </tr>
@@ -319,7 +338,7 @@
             </template>
           </template>
 
-          <!-- ── Charting section ── -->
+          <!-- Charting section -->
           <tr class="settings-group-row">
             <td colspan="3">
               <span class="dc-toggle">▾</span>
@@ -332,16 +351,9 @@
               Plot Interval (s)
             </td>
             <td>
-              <input
-                type="number"
-                v-model.number="plotInterval"
-                min="1"
-                max="3600"
-                step="1"
-                style="width:90px"
-              />
+              <input type="number" v-model.number="plotInterval" min="1" max="3600" step="1"style="width:90px"/>
             </td>
-            <td>Controls how often sensor data is plotted on the chart and saved to the database (1 s – 3600 s)</td>
+            <td>Controls how often sensor data is plotted on the chart and saved to the database (1 s - 3600 s)</td>
           </tr>
 
         </tbody>
@@ -349,7 +361,7 @@
     </div>
 
     <!-- Context menu -->
-    <div v-if="context.visible" class="context-menu" :style="{ top: context.y + 'px', left: context.x + 'px' }" @click.stop>
+    <div v-if="context.visible" class="context-menu" :style="contextMenuStyle" @click.stop>
       <template v-if="context.mode === 'category'">
         <button class="context-item" @click="addDevice(DEVICE_TYPES.Com)"><font-awesome-icon icon="plug" class="context-icon" style="color: #4caf50" /> Add COM Device</button>
         <button class="context-item" @click="addDevice(DEVICE_TYPES.Ip)"><font-awesome-icon icon="network-wired" class="context-icon" style="color: var(--accent)" /> Add IP Device</button>
@@ -373,26 +385,26 @@
     font-weight: 700; 
   }
   .dc-device-row  { 
-    background: var(--bg-table-alt); font-weight: 600; font-size: 12px; 
+    background: var(--bg-table-alt); 
+    font-weight: 600; 
+    font-size: 12px; 
   }
   .dc-device-row:hover td { 
     background: var(--bg-table-hover); 
   }
 
   .dc-toggle { 
-    font-size: 10px; color: var(--text-secondary); margin-right: 4px; 
+    font-size: 10px; 
+    color: var(--text-secondary); 
+    margin-right: 4px; 
   }
   .dc-hint   {
-    font-size: 10px; color: var(--text-secondary); font-weight: 400; margin-left: 8px;
+    font-size: 10px; 
+    color: var(--text-secondary); 
+    font-weight: 400; 
+    margin-left: 8px;
   }
 
-  /*
-   * ==========================================
-   * Settings table
-   * ==========================================
-   */
-
-  /* Outer container for the settings view — fills the main area. */
   .settings-view {
     display: flex;
     flex-direction: column;
@@ -400,7 +412,6 @@
     overflow: hidden;
   }
 
-  /* Scrollable wrapper around the settings tree table. */
   .settings-table {
     flex: 1;
     overflow-y: auto;
@@ -410,7 +421,7 @@
     width: 100%;
     border-collapse: collapse;
   }
-  /* Sticky column headers that stay visible when scrolling the table. */
+
   .settings-table th {
     background: var(--bg-table-header);
     text-align: left;
@@ -427,11 +438,14 @@
     font-size: 12px;
     vertical-align: middle;
   }
-  /* Alternating row shading for easier scanning. */
-  .settings-table tr:nth-child(even) td { background: var(--bg-table-alt); }
-  .settings-table tr:hover td          { background: var(--bg-table-hover); }
 
-  /* Inline edit inputs inside settings table cells — override the global input padding. */
+  .settings-table tr:nth-child(even) td { 
+    background: var(--bg-table-alt); 
+  }
+  .settings-table tr:hover td { 
+    background: var(--bg-table-hover); 
+  }
+
   .settings-table td input[type="text"],
   .settings-table td input[type="number"] {
     padding: 2px 6px;
@@ -439,16 +453,17 @@
     width: 100%;
   }
 
-  /* Group header rows (e.g. "Connection", "Logging") get a darker background. */
   .settings-group-row td {
     background: var(--bg-table-header) !important;
     font-weight: 600;
   }
 
-  /* Spacer element used to indent child rows under a group header. */
   .depth-indent { display: inline-block; }
 
-  .context-icon { width: 14px; flex-shrink: 0; }
+  .context-icon { 
+    width: 14px; 
+    flex-shrink: 0; 
+  }
 
   .com { color: #4caf50; }
   .ip  { color: var(--accent); }

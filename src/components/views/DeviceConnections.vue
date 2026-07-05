@@ -1,5 +1,5 @@
 <script setup>
-  import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+  import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 
   
   /////////////////////////////////////////////
@@ -29,7 +29,18 @@
   let nextId = 3
 
   // Context menu state.
-  const context = ref({ visible: false, x: 0, y: 0, mode: null, target: null })
+  const context = ref({ visible: false, 
+    x: 0, y: 0, 
+    mode: null, 
+    target: null 
+  })
+
+  /////////////////////////////////////////////
+  // Define computed properties.
+  const contextMenuStyle = computed(() => ({ 
+    top: context.value.y + 'px', 
+    left: context.value.x + 'px' 
+  }))
 
   /////////////////////////////////////////////
   // Mounts
@@ -89,7 +100,9 @@
     prop.editing = true
     nextTick(() => {
       const el = document.querySelector('.prop-edit-active input, .prop-edit-active select')
-      if (el) { el.focus(); el.select?.() }
+      if (el) {
+         el.focus(); el.select?.() 
+      }
     })
   }
 
@@ -235,7 +248,7 @@
     </div>
 
     <!-- Context menu -->
-    <div v-if="context.visible" class="context-menu" :style="{ top: context.y + 'px', left: context.x + 'px' }" @click.stop>
+    <div v-if="context.visible" class="context-menu" :style="contextMenuStyle" @click.stop>
       <template v-if="context.mode === 'category'">
         <button class="context-item" @click="addDevice('com')">
           <font-awesome-icon icon="plug" class="context-icon" style="color: #4caf50" /> Add COM Device
