@@ -132,10 +132,10 @@
         <div class="report-group">
           <div class="report-group-header">Available Runs</div>
           <div class="run-list">
-            <div v-for="run in runs" :key="selectedRun.value.id" class="run-list-item" 
-              :class="{ selected: selectedRun?.id === selectedRun.value.id }"
+            <div v-for="run in runs" :key="run.id" class="run-list-item"
+              :class="{ selected: selectedRun?.id === run.id }"
               @click="selectedRun = run">
-              {{ selectedRun.value.name }}
+              {{ run.name }}
             </div>
             <div v-if="loading" class="run-list-empty">Loading…</div>
             <div v-else-if="runs.length === 0" class="run-list-empty">No runs available</div>

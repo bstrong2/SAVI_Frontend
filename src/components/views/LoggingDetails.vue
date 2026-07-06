@@ -12,24 +12,21 @@
   ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
   /////////////////////////////////////////////
-  // Injected from App.vue
-  const connection        = inject('connection')
-  const layoutItems       = inject('layoutItems')
-  const runInfo           = inject('runInfo')
-  const runState          = inject('runState')
-  const loggedSensors     = inject('loggedSensors')
+  // Define variables.
+  const connection = inject('connection')
+  const layoutItems = inject('layoutItems')
+  const runInfo = inject('runInfo')
+  const runState = inject('runState')
+  const loggedSensors = inject('loggedSensors')
   const chartPlotInterval = inject('chartPlotInterval')
-  const authToken         = inject('authToken')
-  const devices           = inject('devices')
-  const BACKEND_URL       = inject('BACKEND_URL')
-  const addLog            = inject('addLog', (msg, level) => console.error(msg))
+  const authToken = inject('authToken')
+  const devices = inject('devices')
+  const BACKEND_URL = inject('BACKEND_URL')
+  const addLog = inject('addLog', (msg, level) => console.error(msg))
   const showStartRunDialog = inject('showStartRunDialog')
-  const showLogOnlyDialog  = inject('showLogOnlyDialog')
-  const resolveDeviceId    = inject('resolveDeviceId')
-  const handleRunCommand   = inject('handleRunCommand')
-
-  /////////////////////////////////////////////
-  // Local state
+  const showLogOnlyDialog = inject('showLogOnlyDialog')
+  const resolveDeviceId = inject('resolveDeviceId')
+  const handleRunCommand = inject('handleRunCommand')
   const selectedSensorId = ref(null)
   let lastChartPlotMs = 0
 
@@ -52,17 +49,13 @@
   // Computed
   const isLogOnlyMode = computed(() => loggedSensors.value.length > 0)
 
-  const allCanvasSensors = computed(() =>
-    (layoutItems?.value ?? []).filter(i => i.type === ITEM_TYPES.Sensor)
-  )
+  const allCanvasSensors = computed(() => (layoutItems?.value ?? []).filter(i => i.type === ITEM_TYPES.Sensor))
 
-  const displaySensors = computed(() =>
-    isLogOnlyMode.value ? loggedSensors.value : allCanvasSensors.value
-  )
+  const displaySensors = computed(() => isLogOnlyMode.value ? loggedSensors.value : allCanvasSensors.value)
 
   const startedBy = computed(() => runInfo?.value?.startedBy ?? '—')
   const startedAt = computed(() => runInfo?.value?.startedAt ?? '—')
-  const status    = computed(() => runInfo?.value?.status    ?? RUN_STATUS.Idle)
+  const status = computed(() => runInfo?.value?.status    ?? RUN_STATUS.Idle)
 
   const chartOptions = {
     responsive: true,
@@ -93,15 +86,12 @@
 
   /////////////////////////////////////////////
   // Watches
-
   watch(displaySensors, (list) => {
     if (!list.find(s => s.id === selectedSensorId.value))
       selectedSensorId.value = list[0]?.id ?? null
   }, { immediate: true })
 
   // Rebuild chart datasets when logged sensors change.
-  // sensors non-empty → empty (run stops): preserve chart data for review.
-  // sensors empty from idle: reset to single-line default.
   watch(loggedSensors, (sensors, prevSensors) => {
     if (sensors.length > 0) {
       chartData.value = {
@@ -143,6 +133,7 @@
     if (newId) {
       await loadChartFromDb(newId)
     } else if (runState.value === RUN_STATUS.Idle) {
+
       try {
         const response = await fetch(`${BACKEND_URL}/api/runs`)
 
@@ -163,7 +154,9 @@
   watch(runState, async (newState, oldState) => {
     if (newState === RUN_STATUS.Idle && oldState !== RUN_STATUS.Idle) {
       const dbRunId = runInfo?.value?.dbRunId
-      if (dbRunId) await loadChartFromDb(dbRunId)
+
+      if (dbRunId) 
+        await loadChartFromDb(dbRunId)
     }
   })
 
@@ -200,16 +193,22 @@
 
   async function restoreRunState() {
     const stored = localStorage.getItem('savi-run')
-    if (!stored) return
+
+    if (!stored) 
+      return
 
     try {
       const { runState: savedState, runInfo: savedInfo } = JSON.parse(stored)
       const dbRunId = savedInfo?.dbRunId
-      if (!dbRunId) { localStorage.removeItem('savi-run'); return }
+      if (!dbRunId) { 
+        localStorage.removeItem('savi-run'); 
+        return 
+      }
 
       const response = await fetch(`${BACKEND_URL}/api/runs/${dbRunId}`)
       if (response.ok) {
         const data = await response.json()
+
         if (data.status === RUN_STATUS.Running) {
           runInfo.value  = savedInfo
           runState.value = savedState
@@ -227,10 +226,8 @@
     }
   }
 
-
   /////////////////////////////////////////////
-  // Chart helpers
-
+  // Defining all functions.
   function dbTimeToLabel(dbTime) {
     const [datePart, timePart] = dbTime.split(' ')
     const [, month, day] = datePart.split('-')
@@ -253,7 +250,9 @@
 
       const details = await response.json()
       const readings = details.readings ?? []
-      if (readings.length === 0) return
+
+      if (readings.length === 0)
+        return
 
       const byName = {}
       const labelSet = new Set()
@@ -263,10 +262,13 @@
         const label = dbTimeToLabel(rd.insertTime)
         labelSet.add(label)
 
-        if (!byName[rd.sensorName]) byName[rd.sensorName] = {}
+        if (!byName[rd.sensorName]) 
+          byName[rd.sensorName] = {}
+
         byName[rd.sensorName][label] = rd.value
 
-        if (labelSet.size === MAX_CHART_POINTS) break
+        if (labelSet.size === MAX_CHART_POINTS) 
+          break
       }
       const allLabels = [...labelSet].reverse()
 
@@ -305,15 +307,20 @@
   function pushChartPoint(sensorId, value) {
     const datasets = chartData.value.datasets
     const idx = datasets.findIndex(ds => ds.sensorId === sensorId)
-    if (idx === -1) return
+
+    if (idx === -1) 
+      return
 
     const label = fmtDateTime()
     const newData = [...datasets[idx].data, value]
-    if (newData.length > MAX_CHART_POINTS) newData.shift()
+    if (newData.length > MAX_CHART_POINTS) 
+      newData.shift()
 
     const newDatasets = datasets.map((ds, i) => i === idx ? { ...ds, data: newData } : { ...ds })
     const newLabels = [...chartData.value.labels, label]
-    if (newLabels.length > MAX_CHART_POINTS) newLabels.shift()
+
+    if (newLabels.length > MAX_CHART_POINTS) 
+      newLabels.shift()
 
     chartData.value = { labels: newLabels, datasets: newDatasets }
 
@@ -327,28 +334,33 @@
     }
   }
 
-
-  /////////////////////////////////////////////
-  // SignalR handlers
-
   function handleSensorUpdate(sensorId, value) {
     const tile = layoutItems.value?.find(i => i.id === sensorId && i.type === ITEM_TYPES.Sensor)
     if (tile) {
-      if (tile.driver === DRIVERS.CollisionDetector) tile.value = value >= 0.5 ? 'Collision!' : 'No Contact'
-      else if (tile.driver === DRIVERS.Relay) tile.relayState = value >= 0.5 ? 'on' : 'off'
+      if (tile.driver === DRIVERS.CollisionDetector) 
+        tile.value = value >= 0.5 ? 'Collision!' : 'No Contact'
+      else if (tile.driver === DRIVERS.Relay) 
+        tile.relayState = value >= 0.5 ? 'on' : 'off'
     }
 
-    if (isLogOnlyMode.value) return
-    if (sensorId !== selectedSensorId.value) return
+    if (isLogOnlyMode.value) 
+      return
+
+    if (sensorId !== selectedSensorId.value) 
+      return
 
     const ds = chartData.value.datasets[0]
-    if (!ds) return
+    if (!ds) 
+      return
 
     const newLabels = [...chartData.value.labels, fmtDateTime()]
-    const newData   = [...ds.data, value]
+    const newData = [...ds.data, value]
 
-    if (newLabels.length > MAX_CHART_POINTS) newLabels.shift()
-    if (newData.length  > MAX_CHART_POINTS) newData.shift()
+    if (newLabels.length > MAX_CHART_POINTS) 
+      newLabels.shift()
+
+    if (newData.length  > MAX_CHART_POINTS) 
+      newData.shift()
 
     chartData.value = { labels: newLabels, datasets: [{ ...ds, data: newData }] }
   }
@@ -356,17 +368,25 @@
   function handleSimulatedSensorState(state) {
     for (const r of state.relays ?? []) {
       const item = layoutItems.value.find(i => i.type === ITEM_TYPES.Sensor && i.id === r.id && i.driver === DRIVERS.Relay && i.connection === DRIVERS.Simulated)
-      if (item) item.relayState = r.state
+      
+      if (item) 
+        item.relayState = r.state
     }
     for (const d of state.digitalInputs ?? []) {
       const item = layoutItems.value.find(i => i.type === ITEM_TYPES.Sensor && i.id === d.id && i.driver === DRIVERS.CollisionDetector && i.connection === DRIVERS.Simulated)
-      if (item) item.value = d.stateLabel
+      
+      if (item) 
+        item.value = d.stateLabel
     }
 
-    if (loggedSensors.value.length === 0 || runState.value !== RUN_STATUS.Running) return
+    if (loggedSensors.value.length === 0 || runState.value !== RUN_STATUS.Running) 
+      return
 
     const nowMs = Date.now()
-    if (nowMs - lastChartPlotMs < chartPlotInterval.value * 1000) return
+
+    if (nowMs - lastChartPlotMs < chartPlotInterval.value * 1000) 
+      return
+
     lastChartPlotMs = nowMs
 
     const label = fmtDateTime()
@@ -380,33 +400,53 @@
 
     // Real Pi sensors aren't in SimulatedSensorState — read current tile state directly.
     for (const s of loggedSensors.value) {
-      if (s.connection === DRIVERS.Simulated) continue
+
+      if (s.connection === DRIVERS.Simulated) 
+        continue
+      
       const tile = layoutItems.value.find(i => i.id === s.id)
-      if (!tile) continue
-      if (s.driver === DRIVERS.Relay)             valueMap.set(s.id, tile.relayState === 'on'       ? 1 : 0)
-      if (s.driver === DRIVERS.CollisionDetector) valueMap.set(s.id, tile.value       === 'Collision!' ? 1 : 0)
+    
+      if (!tile) 
+        continue
+    
+      if (s.driver === DRIVERS.Relay)
+        valueMap.set(s.id, tile.relayState === 'on' ? 1 : 0)
+      
+      if (s.driver === DRIVERS.CollisionDetector)
+        valueMap.set(s.id, tile.value === 'Collision!' ? 1 : 0)
     }
 
     let anyUpdate = false
     const newDatasets = chartData.value.datasets.map(ds => {
-      if (!valueMap.has(ds.sensorId)) return { ...ds }
-      anyUpdate = true
+
+      if (!valueMap.has(ds.sensorId)) 
+        return { ...ds }
+      
+        anyUpdate = true
       const newData = [...ds.data, valueMap.get(ds.sensorId)]
-      if (newData.length > MAX_CHART_POINTS) newData.shift()
-      return { ...ds, data: newData }
+      
+      if (newData.length > MAX_CHART_POINTS) 
+        newData.shift()
+      
+        return { ...ds, data: newData }
     })
 
-    if (!anyUpdate) return
+    if (!anyUpdate)
+      return
 
     const newLabels = [...chartData.value.labels, label]
-    if (newLabels.length > MAX_CHART_POINTS) newLabels.shift()
+
+    if (newLabels.length > MAX_CHART_POINTS) 
+      newLabels.shift()
+    
     chartData.value = { labels: newLabels, datasets: newDatasets }
 
     const dbRunId = runInfo.value?.dbRunId
+
     if (dbRunId && authToken.value) {
       const readings = loggedSensors.value
-        .filter(s => valueMap.has(s.id))
-        .map(s => ({ canvasId: s.id, value: valueMap.get(s.id) }))
+      .filter(s => valueMap.has(s.id))
+      .map(s => ({ canvasId: s.id, value: valueMap.get(s.id) }))
 
       if (readings.length > 0) {
         fetch(`${BACKEND_URL}/api/run/${dbRunId}/readings`, {
@@ -418,13 +458,20 @@
     }
   }
 
-
   function handleDiReconnect() {
     for (const item of layoutItems.value) {
-      if (item.type !== 'sensor' || item.driver !== DRIVERS.CollisionDetector) continue
-      if (item.connection === DRIVERS.Simulated || item.pin == null) continue
+
+      if (item.type !== 'sensor' || item.driver !== DRIVERS.CollisionDetector) 
+        continue
+      
+      if (item.connection === DRIVERS.Simulated || item.pin == null) 
+        continue
+
       const deviceId = resolveDeviceId(item.connection)
-      if (deviceId === null) continue
+
+      if (deviceId === null) 
+        continue
+
       fetch(`${BACKEND_URL}/api/devices/${deviceId}/di/monitor`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -433,12 +480,10 @@
     }
   }
 
-
-  /////////////////////////////////////////////
-  // Run execution
-
   async function callRelay(sensor, state) {
-    if (!sensor) return
+
+    if (!sensor) 
+      return
 
     try {
       if (sensor.connection === DRIVERS.Simulated) {
@@ -462,7 +507,10 @@
 
     // Mirror tile state and push chart point — real Pi relays have no SimulatedSensorState broadcast.
     const tile = layoutItems.value.find(i => i.id === sensor.id)
-    if (tile) tile.relayState = state ? 'on' : 'off'
+
+    if (tile) 
+      tile.relayState = state ? 'on' : 'off'
+    
     pushChartPoint(sensor.id, state ? 1 : 0)
   }
 
@@ -471,13 +519,21 @@
     addLog(`Executing recipe: ${recipe.name} (${recipe.steps.length} steps)`, LOG_LEVELS.Info)
 
     for (const step of recipe.steps) {
-      if (runState.value !== RUN_STATUS.Running) break
-      if (step.action === 'relay/on')  await callRelay(doSensor, true)
-      if (step.action === 'relay/off') await callRelay(doSensor, false)
+
+      if (runState.value !== RUN_STATUS.Running) 
+        break
+      
+      if (step.action === 'relay/on')
+        await callRelay(doSensor, true)
+      
+      if (step.action === 'relay/off') 
+        await callRelay(doSensor, false)
+
       await delay(step.durationMs)
     }
 
-    if (doSensor) await callRelay(doSensor, false)
+    if (doSensor) 
+      await callRelay(doSensor, false)
 
     if (runState.value === RUN_STATUS.Running) {
       addLog(`Recipe complete — stopping run`, LOG_LEVELS.Info)
@@ -489,9 +545,8 @@
     const recipeSensors = [info.doSensor, info.diSensor].filter(Boolean)
 
     for (const s of recipeSensors) {
-      const endpoint = s.connection === DRIVERS.Simulated
-        ? `${BACKEND_URL}/api/simulate/register`
-        : `${BACKEND_URL}/api/sensors/register-canvas`
+      const endpoint = s.connection === DRIVERS.Simulated ? `${BACKEND_URL}/api/simulate/register` : `${BACKEND_URL}/api/sensors/register-canvas`
+      
       await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -537,7 +592,8 @@
       addLog(`Failed to create run record: ${e.message}`, LOG_LEVELS.Warning)
     }
 
-    if (recipe?.steps?.length) executeRecipe(recipe, info.doSensor, info.diSensor)
+    if (recipe?.steps?.length) 
+      executeRecipe(recipe, info.doSensor, info.diSensor)
   }
 
   async function handleLogOnlyConfirmed(info) {
@@ -552,11 +608,8 @@
       dbRunId: null,
     }
     showLogOnlyDialog.value = false
-    addLog(
-      `Log-only started by ${info.startedBy} — ${info.selectedSensors.length} sensor(s): ` +
-      info.selectedSensors.map(s => s.name).join(', '),
-      LOG_LEVELS.Info
-    )
+    addLog(`Log-only started by ${info.startedBy} — ${info.selectedSensors.length} sensor(s): ` + info.selectedSensors.map(s => s.name).join(', '),
+      LOG_LEVELS.Info)
 
     try {
       const response = await fetch(`${BACKEND_URL}/api/run/start`, {
@@ -590,9 +643,7 @@
       </div>
       <div v-if="!chartData.datasets.some(ds => ds.data.length > 0)" class="chart-empty">
         {{
-          isLogOnlyMode
-            ? 'Logging started — waiting for first data point…'
-            : 'No data — waiting for sensor updates via SignalR'
+          isLogOnlyMode ? 'Logging started — waiting for first data point…' : 'No data — waiting for sensor updates via SignalR'
         }}
       </div>
     </div>
@@ -615,8 +666,8 @@
 
   </div>
 
-  <StartRunDialog v-if="showStartRunDialog" @confirm="handleStartConfirmed" @cancel="showStartRunDialog.value = false" />
-  <LogOnlyDialog  v-if="showLogOnlyDialog"  @confirm="handleLogOnlyConfirmed" @cancel="showLogOnlyDialog.value = false" />
+  <StartRunDialog v-if="showStartRunDialog" @confirm="handleStartConfirmed" @cancel="showStartRunDialog = false" />
+  <LogOnlyDialog  v-if="showLogOnlyDialog"  @confirm="handleLogOnlyConfirmed" @cancel="showLogOnlyDialog = false" />
 </template>
 
 <style scoped>

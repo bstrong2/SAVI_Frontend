@@ -13,15 +13,16 @@ const props = defineProps({
   isDark: Boolean,
   currentUser: Object,
   runState: { type: String, default: RUN_STATUS.Idle },
+  isLogOnly: { type: Boolean, default: false },
 })
 
 // Define what buttons are available based on what user level is logged in.
 const allScreensButtons = [
-  { id: VIEWS.DeviceLayout,   icon: 'table-cells', color: COLORS.lightBlue, label: 'Device Layout', permission: PERMISSIONS.Public },
-  { id: VIEWS.LoggingDetails, icon: 'chart-line',  color: COLORS.violet,    label: 'Log Details',   permission: PERMISSIONS.AuthRequired },
-  { id: VIEWS.Recipe,         icon: 'list-check',  color: COLORS.amber,     label: 'Recipe (WIP)',  permission: PERMISSIONS.OperatorOnly },
-  { id: VIEWS.Settings,       icon: 'gear',        color: COLORS.gray,      label: 'Settings',      permission: PERMISSIONS.OperatorOnly },
-  { id: VIEWS.Users,          icon: 'users',       color: COLORS.violet,    label: 'Users',         permission: PERMISSIONS.AdminOnly },
+  { id: VIEWS.DeviceLayout, icon: 'table-cells', color: COLORS.lightBlue, label: 'Device Layout', permission: PERMISSIONS.Public },
+  { id: VIEWS.LoggingDetails, icon: 'chart-line', color: COLORS.violet, label: 'Log Details', permission: PERMISSIONS.AuthRequired },
+  { id: VIEWS.Recipe, icon: 'list-check', color: COLORS.amber, label: 'Recipe (WIP)',  permission: PERMISSIONS.OperatorOnly },
+  { id: VIEWS.Settings, icon: 'gear', color: COLORS.gray, label: 'Settings', permission: PERMISSIONS.OperatorOnly },
+  { id: VIEWS.Users, icon: 'users', color: COLORS.violet, label: 'Users', permission: PERMISSIONS.AdminOnly },
 ]
 
 // define emits
@@ -32,17 +33,16 @@ const emit = defineEmits(['navigate', 'run-command', 'other-command', 'toggle-th
 // Define computed properties.
 
 // Determine if buttons in the log details view should show up.
-// Derived from parent-controlled runState prop, will change during run time so need to have this as computed.
-const showStart   = computed(() => props.runState === RUN_STATUS.Idle)
+const showStart = computed(() => props.runState === RUN_STATUS.Idle)
 const showLogOnly = computed(() => props.runState === RUN_STATUS.Idle)
-const showPause   = computed(() => props.runState === RUN_STATUS.Running)
-const showResume  = computed(() => props.runState === RUN_STATUS.Paused)
-const showStop    = computed(() => props.runState === RUN_STATUS.Running || props.runState === RUN_STATUS.Paused)
+const showPause = computed(() => props.runState === RUN_STATUS.Running && props.isLogOnly)
+const showResume = computed(() => props.runState === RUN_STATUS.Paused && props.isLogOnly)
+const showStop = computed(() => props.runState === RUN_STATUS.Running || props.runState === RUN_STATUS.Paused)
 
-const isAdmin    = computed(() => canAccess(props.currentUser, PERMISSIONS.AdminOnly))
+const isAdmin = computed(() => canAccess(props.currentUser, PERMISSIONS.AdminOnly))
 const canOperate = computed(() => canAccess(props.currentUser, PERMISSIONS.OperatorOnly))
 
-const themeIcon  = computed(() => props.isDark ? 'sun' : 'moon')
+const themeIcon = computed(() => props.isDark ? 'sun' : 'moon')
 const themeColor = computed(() => props.isDark ? COLORS.amber : COLORS.slate)
 const themeTitle = computed(() => props.isDark ? 'Switch to light mode' : 'Switch to dark mode')
 
@@ -132,199 +132,177 @@ function handleRun(cmd) {
 </template>
 
 <style scoped>
-/*
- * ==========================================
- * Ribbon
- * ==========================================
- */
 
-/* 3-column grid: brand panel on the left | button groups in the middle | status/user on the right. */
-.ribbon {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: start;
-  background: var(--bg-ribbon);
-  border-bottom: 1px solid var(--ribbon-border);
-  flex-shrink: 0;
-  user-select: none;
-}
+  .ribbon {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: start;
+    background: var(--bg-ribbon);
+    border-bottom: 1px solid var(--ribbon-border);
+    flex-shrink: 0;
+    user-select: none;
+  }
 
-/* Wrapping flex row that holds all the individual ribbon button groups. */
-.ribbon-groups {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-}
+  .ribbon-groups {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+  }
 
-/* Teal brand panel on the far left containing the logo and app name. */
-.ribbon-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 0 18px;
-  background: var(--bg-ribbon-title);
-  border-right: 1px solid var(--ribbon-title-border);
-  white-space: nowrap;
-  align-self: stretch;
-}
+  .ribbon-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 18px;
+    background: var(--bg-ribbon-title);
+    border-right: 1px solid var(--ribbon-title-border);
+    white-space: nowrap;
+    align-self: stretch;
+  }
 
-/* The SAVI logo image. */
-.ribbon-logo {
-  height: 46px;
-  width: 46px;
-  object-fit: contain;
-  flex-shrink: 0;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
-}
+  .ribbon-logo {
+    height: 46px;
+    width: 46px;
+    object-fit: contain;
+    flex-shrink: 0;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+  }
 
-/* Vertical stack holding the app name and subtitle. */
-.logo-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
+  .logo-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
 
-/* Large "SAVI" title text. */
-.logo-name {
-  font-size: 21px;
-  font-weight: 800;
-  letter-spacing: 3px;
-  color: var(--logo-name-color);
-  line-height: 1;
-}
+  .logo-name {
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--logo-name-color);
+    line-height: 1;
+  }
 
-/* Small tagline/version text below the app name. */
-.logo-subtitle {
-  font-size: 9.5px;
-  font-weight: 500;
-  letter-spacing: 0.4px;
-  color: var(--logo-name-color);
-  opacity: 0.65;
-  line-height: 1;
-  white-space: nowrap;
-}
+  .logo-subtitle {
+    font-size: 9.5px;
+    font-weight: 500;
+    letter-spacing: 0.4px;
+    color: var(--logo-name-color);
+    opacity: 0.65;
+    line-height: 1;
+    white-space: nowrap;
+  }
 
-/* One logical group of ribbon buttons (e.g. "Run", "View") with a label beneath. */
-.ribbon-group {
-  display: flex;
-  flex-direction: column;
-  padding: 6px 8px 4px;
-  border-right: 1px solid var(--ribbon-border);
-}
+  .ribbon-group {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 8px 4px;
+    border-right: 1px solid var(--ribbon-border);
+  }
 
-/* Horizontal row of buttons inside a ribbon group. */
-.ribbon-group-btns {
-  display: flex;
-  gap: 3px;
-  flex: 1;
-  align-items: center;
-}
+  /* Horizontal row of buttons inside a ribbon group. */
+  .ribbon-group-btns {
+    display: flex;
+    gap: 3px;
+    flex: 1;
+    align-items: center;
+  }
 
-/* Small label displayed below each ribbon group (e.g. "Run", "View", "File"). */
-.ribbon-group-label {
-  text-align: center;
-  font-size: 10px;
-  color: var(--group-label-color);
-  padding-top: 3px;
-  border-top: 1px solid var(--border-color);
-  margin-top: 4px;
-}
+  .ribbon-group-label {
+    text-align: center;
+    font-size: 10px;
+    color: var(--group-label-color);
+    padding-top: 3px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 4px;
+  }
 
-/* Individual clickable button in the ribbon — icon stacked above a text label. */
-.ribbon-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 3px;
-  color: var(--text-ribbon);
-  cursor: pointer;
-  padding: 5px 8px;
-  min-width: 58px;
-  font-size: 11px;
-  gap: 3px;
-  transition: background 0.1s, border-color 0.1s;
-  line-height: 1.2;
-}
-.ribbon-btn:hover {
-  background: var(--bg-ribbon-btn-hover);
-  border-color: var(--ribbon-border);
-}
-/* Active state — filled accent background when a view button is currently selected. */
-.ribbon-btn:active,
-.ribbon-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--color-white) !important;
-}
+  .ribbon-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 3px;
+    color: var(--text-ribbon);
+    cursor: pointer;
+    padding: 5px 8px;
+    min-width: 58px;
+    font-size: 11px;
+    gap: 3px;
+    transition: background 0.1s, border-color 0.1s;
+    line-height: 1.2;
+  }
+  .ribbon-btn:hover {
+    background: var(--bg-ribbon-btn-hover);
+    border-color: var(--ribbon-border);
+  }
 
-/* Large icon that sits above the button's text label. */
-.ribbon-icon {
-  font-size: 22px;
-  line-height: 1;
-}
-.ribbon-btn.active .ribbon-icon,
-.ribbon-btn:active .ribbon-icon {
-  color: var(--color-white) !important;
-}
+  .ribbon-btn:active,
+  .ribbon-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--color-white) !important;
+  }
 
-/* Per-button accent colors for the run-control buttons when they are not active. */
-.ribbon-btn.run-start:not(.active)    { color: var(--color-darkGreen); }
-.ribbon-btn.run-log-only:not(.active) { color: var(--color-cyan); }
-.ribbon-btn.run-pause:not(.active)    { color: var(--color-darkOrange); }
-.ribbon-btn.run-resume:not(.active)   { color: var(--color-skyBlue); }
-.ribbon-btn.run-stop:not(.active)     { color: var(--color-darkRed); }
+  .ribbon-icon {
+    font-size: 22px;
+    line-height: 1;
+  }
+  .ribbon-btn.active .ribbon-icon,
+  .ribbon-btn:active .ribbon-icon {
+    color: var(--color-white) !important;
+  }
 
-/* Right-side ribbon panel containing the connection status dot and logged-in username. */
-.ribbon-right {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 14px;
-  min-height: 80px;
-  align-self: stretch;
-  white-space: nowrap;
-}
+  .ribbon-btn.run-start:not(.active) { color: var(--color-darkGreen); }
+  .ribbon-btn.run-log-only:not(.active) { color: var(--color-cyan); }
+  .ribbon-btn.run-pause:not(.active) { color: var(--color-darkOrange); }
+  .ribbon-btn.run-resume:not(.active) { color: var(--color-skyBlue); }
+  .ribbon-btn.run-stop:not(.active)  { color: var(--color-darkRed); }
 
-/* Row showing the connection status dot and "Connected / Disconnected" text. */
-.conn-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
+  .ribbon-right {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0 14px;
+    min-height: 80px;
+    align-self: stretch;
+    white-space: nowrap;
+  }
 
-/* Small colored circle that goes green when SignalR is connected, red when not. */
-.conn-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
+  .conn-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
 
-/* Displays the currently logged-in username. */
-.ribbon-user {
-  font-size: 11px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
+  .conn-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
 
-/* Light/dark theme toggle button in the ribbon's right panel. */
-.theme-btn {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  color: var(--text-primary);
-  cursor: pointer;
-  padding: 4px 10px;
-  font-size: 15px;
-  line-height: 1;
-}
-.theme-btn:hover { background: var(--bg-ribbon-btn-hover); }
+  .ribbon-user {
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .theme-btn {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 4px 10px;
+    font-size: 15px;
+    line-height: 1;
+  }
+  .theme-btn:hover { background: var(--bg-ribbon-btn-hover); }
 </style>

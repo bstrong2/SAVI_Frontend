@@ -17,7 +17,9 @@
 
 
   /////////////////////////////////////////////
-  // Define variables.
+  // Define variables. Most of the variabels
+  // Here are for when other vue files need
+  // the data so we inject them.
   const BACKEND_URL = inject('BACKEND_URL')
   const connection = ref(null)
   const connectionStatus = ref(CONNECTION_STATUS.Disconnected)
@@ -26,29 +28,17 @@
   const generalSettings = ref({})
   const isDark = ref(false)
   const logHeight = ref(160)
-  const chartPlotInterval = ref(3)   // seconds between chart data points
-
+  const chartPlotInterval = ref(3)
   const showLoginDialog = ref(false)
   const showReportDialog = ref(false)
   const showStartRunDialog = ref(false)
   const showLogOnlyDialog = ref(false)
-
-  // Run state — owned here so the Start dialog can gate the transition
   const runState = ref(RUN_STATUS.Idle)
-
-  // Run info populated on Start confirm; provided to LoggingDetails
-  const runInfo = ref(null)     // { startedBy, startedAt, notes, recipeName, status, dbRunId, selectedSensors }
-
-  // Auth state — token kept in memory only (not localStorage)
+  const runInfo = ref(null)
   const authToken = ref(null)
-  const currentUser = ref(null)  // { username, role }
-
-  // Shared canvas items — DeviceLayout (edit) and LoggingDetails (sensor picker) both inject this
+  const currentUser = ref(null)
   const layoutItems = ref([])
-
-  // Shared device connections — Settings (edit) and AddSensorDialog (picker) both inject this
   const devices = ref([])
-
   const viewMap = {
     [VIEWS.DeviceLayout]: DeviceLayout,
     [VIEWS.LoggingDetails]: LoggingDetails,
@@ -66,6 +56,9 @@
   const loggedSensors = computed(() => runInfo.value?.selectedSensors ?? [])
   const maxLogEntries = computed(() => generalSettings.value.maxEntries)
 
+  // Only have the pause button show when we are running logging, not a recipe.
+  const isLogOnly = computed(() => !runInfo.value?.recipeName)
+
   const statusColor = computed(() => {
     if (connectionStatus.value === CONNECTION_STATUS.Connected)    
       return COLORS.green
@@ -79,7 +72,6 @@
 
   /////////////////////////////////////////////
   // Watch for changes.
-
   watch(chartPlotInterval, (seconds) => {
     syncPollInterval(seconds)
   })
@@ -228,7 +220,9 @@
     for (const d of devices.value) {
       if (d.type === DEVICE_TYPES.Ip) {
         const dip = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
-        if (dip === ip) return d.id
+
+        if (dip === ip) 
+          return d.id
       }
     }
     return null
@@ -315,7 +309,7 @@
 <template>
   <div class="app-shell">
     <AppRibbon :active-view="activeView" :connection-status="connectionStatus" :status-color="statusColor" :is-dark="isDark" :current-user="currentUser"
-      :run-state="runState" @navigate="handleNavigate" @run-command="handleRunCommand" @other-command="handleOtherCommand" @toggle-theme="toggleTheme"/>
+      :run-state="runState" :is-log-only="isLogOnly" @navigate="handleNavigate" @run-command="handleRunCommand" @other-command="handleOtherCommand" @toggle-theme="toggleTheme"/>
 
     <div class="main-area">
       <div v-if="!currentUser" class="login-required">
@@ -346,8 +340,6 @@
 
 <style scoped>
 
-/* Outer flex column that stacks the ribbon, main view, splitter, and log panel
-   top to bottom and locks the whole thing to the viewport height. */
 .app-shell {
   display: flex;
   flex-direction: column;
@@ -357,7 +349,7 @@
   color: var(--text-primary);
 }
 
-/* Flexible region between the ribbon and the log panel — fills all remaining height. */
+/* Flexible region between the ribbon and the log panel, fills all remaining height. */
 .main-area {
   flex: 1;
   overflow: hidden;
@@ -365,8 +357,6 @@
   background: var(--bg-panel);
 }
 
-/* Wrapper that keeps LoggingDetails mounted (for SignalR/state) while allowing v-show to work
-   on a single DOM node — the component itself is a fragment and can't be targeted by v-show. */
 .main-fill {
   height: 100%;
   overflow: hidden;
@@ -382,8 +372,7 @@
   color: var(--text-secondary);
 }
 
-/* Thin draggable bar between the main area and the log panel.
-   The cursor changes to a vertical resize arrow on hover. */
+/* Thin draggable bar between the main area and the log panel. The cursor changes to a vertical resize arrow on hover. */
 .h-splitter {
   height: 5px;
   background: var(--bg-splitter);

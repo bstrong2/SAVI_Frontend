@@ -38,8 +38,6 @@
   let nextId = 1
 
   // Track whether a mousedown started inside the toolbar so a drag that ends
-  // anywhere doesn't accidentally clear the selection.
-  // Reset is deferred via setTimeout so the click event fires first.
   let mouseDownInToolbar = false
   const resetToolbarFlag = () => setTimeout(() => { mouseDownInToolbar = false }, 0)
 
@@ -95,6 +93,7 @@
   async function loadLayout() {
     try {
       const response = await fetch(`${BACKEND_URL}/api/layout`)
+
       if (!response.ok) {
         addLog(`Layout load failed (HTTP ${response.status})`, LOG_LEVELS.Warning)
         return
@@ -109,6 +108,7 @@
         // Register all sensors with the backend so the canvas to DB ID mapping is
         // set. That way we can update the sensors with the correct values.
         for (const item of items.value.filter(i => i.type === ITEM_TYPES.Sensor)) {
+
           if (item.connection === DRIVERS.Simulated)
             await registerSimulatedSensor(item)
           else
@@ -172,7 +172,6 @@
     }
 
     // For collision detectors, also tell the Pi to start monitoring the GPIO pin.
-    // I hope I can get rid of this, I need to ponder on how the PI is setup to avoid another call.
     if (item.driver === DRIVERS.CollisionDetector && item.pin != null) {
       const deviceId = resolveDeviceId(item.connection)
       if (deviceId !== null) {
@@ -286,6 +285,7 @@
   }
 
   function deleteSelected() {
+
     if (selectedId.value !== null) {
       items.value = items.value.filter(s => s.id !== selectedId.value)
       selectedId.value = null
@@ -356,12 +356,6 @@
         wrapper.scrollTop = Math.max(0, wrapper.scrollTop  - SPEED)
       else if (ry > r0.height - EDGE)
         wrapper.scrollTop += SPEED
-
-      // Clamp to wrapper min edges so mouse exiting above/left doesn't snap item to 0
-      // const cx = Math.max(r0.left, mx)
-      // const cy = Math.max(r0.top,  my)
-      // item.x = Math.max(0, cx - r0.left + wrapper.scrollLeft - offsetX)
-      // item.y = Math.max(0, cy - r0.top  + wrapper.scrollTop  - offsetY)
 
       // Set the location of the selected item to be moving with the mouse.
       item.x = Math.max(0, mx - r0.left + wrapper.scrollLeft - offsetX)
@@ -461,11 +455,12 @@
   function resetTextColorToAuto() {
     if (selectedItem.value) 
       selectedItem.value.textColor = null
+
     originalTextColor.value = null
     showTextColorPicker.value = false
   }
 
-  // Reconnect All Devices — restarts the Pi FastAPI on every connected IP device,
+  // Reconnect All Devices, restarts the Pi FastAPI on every connected IP device,
   // then restarts the C# backend (which auto-restarts when running as a Windows service).
   async function reconnectAllDevices() {
     reconnecting.value = true
@@ -549,30 +544,15 @@
           <div class="toolbar-sep" />
 
           <!-- Object that allows the user to change the background color of the selected object. -->
-          <ColorPickerPopup
-            :type="PICKER_TYPES.BackgroundColor"
-            :show="showColorPicker"
-            :colors="PRESET_COLORS"
-            :model-value="selectedItem.color"
-            :preview-style="{ background: selectedItem.color }"
-            @toggle="showColorPicker = !showColorPicker; closeTextColorPicker()"
-            @pick="pickColor"
-            @confirm="confirmColor"
-            @cancel="closeColorPicker"
+          <ColorPickerPopup :type="PICKER_TYPES.BackgroundColor" :show="showColorPicker" :colors="PRESET_COLORS"
+            :model-value="selectedItem.color" :preview-style="{ background: selectedItem.color }" @toggle="showColorPicker = !showColorPicker; closeTextColorPicker()"
+            @pick="pickColor" @confirm="confirmColor" @cancel="closeColorPicker"
           />
 
           <!-- Object that allows the user to change the text color of the selected object. -->
-          <ColorPickerPopup
-            :type="PICKER_TYPES.Text"
-            :show="showTextColorPicker"
-            :colors="PRESET_COLORS"
-            :model-value="selectedItem.textColor"
+          <ColorPickerPopup :type="PICKER_TYPES.Text" :show="showTextColorPicker" :colors="PRESET_COLORS" :model-value="selectedItem.textColor"
             :preview-style="{ background: selectedItem.textColor ?? COLORS.white, border: selectedItem.textColor ? 'none' : `1px solid ${COLORS.grey}` }"
-            @toggle="openTextColorPicker"
-            @pick="pickTextColor"
-            @confirm="confirmTextColor"
-            @cancel="closeTextColorPicker()"
-            @auto="resetTextColorToAuto"
+            @toggle="openTextColorPicker" @pick="pickTextColor" @confirm="confirmTextColor" @cancel="closeTextColorPicker()" @auto="resetTextColorToAuto"
           />
         </template>
 
