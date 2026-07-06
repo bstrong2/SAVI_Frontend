@@ -1,6 +1,6 @@
 export const ITEM_TYPES = Object.freeze({
   Sensor: 'sensor',
-  Rect:   'rect',
+  Rect: 'rect',
 })
 
 export const DRIVERS = Object.freeze({
@@ -16,9 +16,9 @@ export const DEVICE_TYPES = Object.freeze({
 
 export const DEVICE_PROPS = Object.freeze({
   DeviceName: 'Device Name',
-  ComPort:    'ComPort',
-  BaudRate:   'BaudRate',
-  IpAddress:  'IpAddress',
+  ComPort: 'ComPort',
+  BaudRate: 'BaudRate',
+  IpAddress: 'IpAddress',
   PortNumber: 'PortNumber',
 })
 
@@ -29,6 +29,11 @@ export const SIMULATED_TYPES = Object.freeze([
 ])
 
 export const DRIVER_DEFAULTS = Object.freeze({
-  [DRIVERS.Relay]:             { relayState: 'off' },
+  [DRIVERS.Relay]: { relayState: 'off' },
   [DRIVERS.CollisionDetector]: { value: 'No Contact', unit: '' },
+})
+
+export const PICKER_TYPES = Object.freeze({
+  BackgroundColor: 'Background Color',
+  Text: 'Text',
 })

@@ -1,5 +1,6 @@
 <script setup>
   import { computed } from 'vue'
+  import { COLORS } from '../constants/colors.js'
 
   const props = defineProps({
     item: { type: Object,  required: true },
@@ -11,11 +12,11 @@
 
   function rectTextColor(hex) {
     if (!hex)
-      return '#fff'
+      return COLORS.white
     const r = parseInt(hex.slice(1, 3), 16)
     const g = parseInt(hex.slice(3, 5), 16)
     const b = parseInt(hex.slice(5, 7), 16)
-    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55 ? '#1a1a1a' : '#ffffff'
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55 ? COLORS.nearBlack : COLORS.white
   }
 
   const tileStyle = computed(() => ({
@@ -72,7 +73,7 @@
   }
 
   .rect-tile.selected {
-    outline: 3px solid #fff;
+    outline: 3px solid var(--color-white);
     box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
   }
 

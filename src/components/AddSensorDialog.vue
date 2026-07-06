@@ -1,7 +1,7 @@
 ﻿<script setup>
   import { ref, computed, watch, inject, onMounted } from 'vue'
   import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS, SIMULATED_TYPES } from '../constants/devices.js'
-  import { LOG_LEVELS } from '../constants/logLevels.js'
+  import { LOG_LEVELS } from '../constants/enums.js'
 
 
   /////////////////////////////////////////////

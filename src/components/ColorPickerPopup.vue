@@ -1,5 +1,6 @@
 <script setup>
-  import { PICKER_TYPES } from '../constants/picker.js'
+  import { PICKER_TYPES } from '../constants/devices.js'
+  import { COLORS } from '../constants/colors.js'
 
   /////////////////////////////////////////////
   // Define variables.
@@ -21,7 +22,7 @@
   function swatchStyle(c) {
     return {
       background: c,
-      borderColor: c === '#ffffff' ? '#ccc' : 'transparent',
+      borderColor: c === COLORS.white ? '#ccc' : 'transparent',
     }
   }
 </script>

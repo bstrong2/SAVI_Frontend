@@ -6,43 +6,38 @@
   /////////////////////////////////////////////
   // Define variables.
   const roles = ALL_ROLES
-
-  const username     = ref('')
-  const password     = ref('')
+  const username = ref('')
+  const password = ref('')
   const selectedRole = ref('Operator')
-  const isGlobal     = ref(false)
-
-  const users        = ref([])
-  const loading      = ref(false)
-  const error        = ref('')
-  const addError     = ref('')
+  const isGlobal = ref(false)
+  const users = ref([])
+  const loading = ref(false)
+  const error = ref('')
+  const addError = ref('')
 
   // Inject needed data for this view.
   const BACKEND_URL = inject('BACKEND_URL')
-  const authToken   = inject('authToken')
-
-  // Tracks the in-progress (unsaved) role selection per user id.
-  // When a user picks a new role in the dropdown it goes here.
-  // Cleared on confirm or cancel.
-  const pendingRoles = ref({})   // { [userId]: string }
+  const authToken = inject('authToken')
+  const pendingRoles = ref({})
 
 
   /////////////////////////////////////////////
   // Defining all functions.
   function authHeaders() {
     return {
-      'Content-Type':  'application/json',
+      'Content-Type': 'application/json',
       'Authorization': `Bearer ${authToken?.value ?? ''}`,
     }
   }
 
   async function fetchUsers() {
     loading.value = true
-    error.value   = ''
+    error.value = ''
     pendingRoles.value = {}
     try {
       const response = await fetch(`${BACKEND_URL}/api/users`, { headers: authHeaders() })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      if (!response.ok) 
+        throw new Error(`HTTP ${response.status}`)
       users.value = await response.json()
     } catch (e) {
       error.value = `Failed to load users: ${e.message}`
@@ -52,16 +47,19 @@
   }
 
   async function addUser() {
-    if (!username.value.trim() || !password.value) return
+
+    if (!username.value.trim() || !password.value) 
+      return
+
     addError.value = ''
     try {
       const response = await fetch(`${BACKEND_URL}/api/users`, {
-        method:  'POST',
+        method: 'POST',
         headers: authHeaders(),
-        body:    JSON.stringify({
+        body: JSON.stringify({
           username: username.value.trim(),
           password: password.value,
-          role:     selectedRole.value,
+          role: selectedRole.value,
           isGlobal: isGlobal.value,
         }),
       })
@@ -69,12 +67,13 @@
         addError.value = 'Username already exists.'
         return
       }
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      if (!response.ok) 
+        throw new Error(`HTTP ${response.status}`)
 
-      username.value     = ''
-      password.value     = ''
+      username.value = ''
+      password.value = ''
       selectedRole.value = 'Operator'
-      isGlobal.value     = false
+      isGlobal.value = false
       await fetchUsers()
     } catch (e) {
       addError.value = `Failed to add user: ${e.message}`
@@ -83,8 +82,9 @@
 
   // Called when the dropdown changes — just stages the new value, doesn't save yet.
   function onRoleChange(user, newRole) {
+
     if (newRole === user.instanceRole) {
-      // Reverted back to saved value — clear the pending entry
+
       const updated = { ...pendingRoles.value }
       delete updated[user.id]
       pendingRoles.value = updated
@@ -103,18 +103,20 @@
   // Confirm and send the staged role to the backend.
   async function confirmRoleUpdate(user) {
     const newRole = pendingRoles.value[user.id]
-    if (!newRole || newRole === user.instanceRole) return
+
+    if (!newRole || newRole === user.instanceRole) 
+      return
 
     error.value = ''
     try {
       const response = await fetch(`${BACKEND_URL}/api/users/${user.id}/role`, {
-        method:  'PATCH',
+        method: 'PATCH',
         headers: authHeaders(),
-        body:    JSON.stringify({ role: newRole }),
+        body: JSON.stringify({ role: newRole }),
       })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      if (!response.ok) 
+        throw new Error(`HTTP ${response.status}`)
 
-      // Commit the change locally and clear the pending entry
       user.instanceRole = newRole
       cancelRoleEdit(user)
     } catch (e) {
@@ -125,10 +127,12 @@
   async function removeUser(user) {
     try {
       const response = await fetch(`${BACKEND_URL}/api/users/${user.id}`, {
-        method:  'DELETE',
+        method: 'DELETE',
         headers: authHeaders(),
       })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      if (!response.ok) 
+        throw new Error(`HTTP ${response.status}`)
+      
       await fetchUsers()
     } catch (e) {
       error.value = `Failed to remove user: ${e.message}`
@@ -168,15 +172,10 @@
 
         <span />
         <div>
-          <button
-            class="btn btn-primary"
-            :disabled="!username.trim() || !password"
-            @click="addUser"
-            style="width:fit-content"
-          >
+          <button class="btn btn-primary" :disabled="!username.trim() || !password" @click="addUser" style="width:fit-content">
             Add User
           </button>
-          <div v-if="addError" style="font-size:12px; color:#f44336; margin-top:4px">{{ addError }}</div>
+          <div v-if="addError" style="font-size:12px; color:var(--color-red); margin-top:4px">{{ addError }}</div>
         </div>
       </div>
     </div>
@@ -189,7 +188,7 @@
       </div>
 
       <div v-if="loading" style="color:var(--text-secondary); padding:12px">Loading…</div>
-      <div v-else-if="error" style="color:#f44336; padding:12px">{{ error }}</div>
+      <div v-else-if="error" style="color:var(--color-red); padding:12px">{{ error }}</div>
       <table v-else class="users-table">
         <thead>
           <tr>
@@ -204,16 +203,12 @@
             <td>{{ user.username }}</td>
             <td>
               <div class="role-cell">
-                <select
-                  class="role-select"
-                  :value="pendingRoles[user.id] ?? user.instanceRole"
-                  @change="onRoleChange(user, $event.target.value)"
-                >
+                <select class="role-select" :value="pendingRoles[user.id] ?? user.instanceRole" @change="onRoleChange(user, $event.target.value)">
                   <option v-for="r in roles" :key="r">{{ r }}</option>
                 </select>
                 <template v-if="pendingRoles[user.id]">
                   <button class="btn btn-primary btn-xs" @click="confirmRoleUpdate(user)">Update</button>
-                  <button class="btn btn-secondary btn-xs" @click="cancelRoleEdit(user)" title="Cancel"><font-awesome-icon icon="xmark" style="color: #e53935" /></button>
+                  <button class="btn btn-secondary btn-xs" @click="cancelRoleEdit(user)" title="Cancel"><font-awesome-icon icon="xmark" style="color: var(--color-darkRed)" /></button>
                 </template>
               </div>
             </td>
@@ -234,7 +229,6 @@
 </template>
 
 <style scoped>
-  /* Role cell: dropdown + Update/Cancel inline */
   .role-cell {
     display: flex;
     align-items: center;
@@ -252,29 +246,20 @@
   }
 
   .role-select:focus {
-    outline: 2px solid var(--accent-color, #1976d2);
+    outline: 2px solid var(--accent);
     outline-offset: 1px;
   }
 
-  /* Extra-small button variant for inline row actions */
   .btn-xs {
     font-size: 11px;
     padding: 2px 7px;
     line-height: 1.4;
   }
 
-  /* Subtle highlight on rows with a pending (unsaved) change */
   .row-dirty td {
-    background: color-mix(in srgb, var(--accent-color, #1976d2) 6%, transparent);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
   }
 
-  /*
-   * ==========================================
-   * Users view
-   * ==========================================
-   */
-
-  /* Floating panel with a border and subtle drop shadow. */
   .card {
     background: var(--bg-panel);
     border: 1px solid var(--border-color);
@@ -283,7 +268,6 @@
     box-shadow: 0 2px 6px rgba(0,0,0,0.08);
   }
 
-  /* Outer scrollable container for the Users management page. */
   .users-view {
     display: flex;
     flex-direction: column;
@@ -299,7 +283,7 @@
     color: var(--text-primary);
   }
 
-  /* 2-column grid form for adding a new user (label | input). */
+
   .add-user-form {
     display: grid;
     grid-template-columns: 100px 1fr;
@@ -309,7 +293,6 @@
   }
   .add-user-form label { font-size: 13px; color: var(--text-secondary); }
 
-  /* Full-width table listing all existing users with their roles. */
   .users-table {
     width: 100%;
     border-collapse: collapse;
@@ -327,9 +310,13 @@
     border-bottom: 1px solid var(--border-color);
     vertical-align: middle;
   }
-  /* Alternating row shading. */
-  .users-table tr:nth-child(even) td { background: var(--bg-table-alt); }
-  .users-table tr:hover td          { background: var(--bg-table-hover); }
-  /* Role dropdowns only need to be as wide as their content, not full cell width. */
+
+  .users-table tr:nth-child(even) td { 
+    background: var(--bg-table-alt); 
+  }
+  .users-table tr:hover td {
+     background: var(--bg-table-hover); 
+    }
+
   .users-table select { width: auto; }
 </style>

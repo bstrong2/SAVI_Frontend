@@ -1,7 +1,7 @@
 ﻿<script setup>
   import { ref, computed, watch, inject, onMounted, onUnmounted, nextTick } from 'vue'
   import { DEVICE_TYPES, DEVICE_PROPS } from '../../constants/devices.js'
-  import { LOG_LEVELS } from '../../constants/logLevels.js'
+  import { LOG_LEVELS } from '../../constants/enums.js'
 
 
   /////////////////////////////////////////////
@@ -14,9 +14,6 @@
   const generalSettings = inject('generalSettings')
   const devices = inject('devices')
 
-  // Table-driven UI model — each row defines the display metadata (name, description,
-  // group, type) for one setting. Values are seeded from generalSettings and written
-  // back to it via the watch below whenever the user edits a row.
   const settings = ref([
     { id: 1, depth: 0, name: 'Connection', value: '', description: 'Connection settings', type: 'group', expanded: true },
     { id: 4, depth: 1, name: 'Reconnect on Loss', value: generalSettings.value.reconnectOnLoss, description: 'Auto-reconnect when disconnected', type: 'bool', editing: false },
@@ -31,13 +28,15 @@
   const dcExpanded = ref(true)
   let nextDevId = Math.max(...devices.value.map(d => d.id), 2) + 1
 
-  // Snapshot-based dirty detection — stores values at last save/load.
-  // unsavedChanges is a computed so it clears automatically when the user restores a value.
   const savedSettingsValues = ref(settings.value.map(s => ({ id: s.id, value: s.value })))
-  const savedDevicesJson = ref(null)   // baselined in onMounted after App.vue fetches complete
+  const savedDevicesJson = ref(null)
   const savedPlotInterval = ref(chartPlotInterval.value)
-
-  const context = ref({ visible: false, x: 0, y: 0, mode: null, target: null })
+  const context = ref({ 
+    visible: false, 
+    x: 0, 
+    y: 0, 
+    mode: null, 
+    target: null })
 
 
   /////////////////////////////////////////////
@@ -62,8 +61,6 @@
     return result
   })
 
-  // Chart plot interval — writable computed so v-model updates the App.vue ref
-  // immediately (live effect) and persists via saveAppSettings.
   const plotInterval = computed({
     get: () => chartPlotInterval.value,
     set: (v) => {
@@ -75,9 +72,6 @@
     },
   })
 
-  // Serialize devices without the transient `editing` flag.
-  // Coerce property values to String so a backend-returned number (9600)
-  // and a user-typed string ('9600') compare as equal.
   const devicesSnapshot = computed(() =>
     JSON.stringify(devices.value.map(d => ({
       ...d,
@@ -101,9 +95,6 @@
 
   /////////////////////////////////////////////
   // Watch for changes.
-
-  // Sync any changed setting row back into the persistent generalSettings ref in App.vue.
-  // This keeps values alive across view navigation without requiring a Save click.
   watch(settings, (rows) => {
     const g = generalSettings.value
     const v = id => rows.find(s => s.id === id)?.value
@@ -217,9 +208,9 @@
   async function saveSettings() {
     try {
       const response = await fetch(`${BACKEND_URL}/api/devices`, {
-        method:  'POST',
+        method: 'POST',
         headers: {
-          'Content-Type':  'application/json',
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken?.value}`,
         },
         body: JSON.stringify({ devices: devices.value }),
@@ -236,8 +227,6 @@
     }
   }
 
-  // Device configs are loaded by App.vue on startup.
-  // The Load Settings button is still available for a manual refresh.
   async function loadSettings() {
     try {
       const response = await fetch(`${BACKEND_URL}/api/devices`)
@@ -262,7 +251,7 @@
     <div class="view-toolbar">
       <button class="toolbar-btn" @click.stop="saveSettings"><font-awesome-icon icon="floppy-disk" style="color: var(--accent)" /> Save Settings</button>
       <span v-if="unsavedChanges" class="unsaved-indicator"><font-awesome-icon icon="triangle-exclamation" /> Unsaved changes</span>
-      <button class="toolbar-btn" @click.stop="loadSettings"><font-awesome-icon icon="folder-open" style="color: #e6a817" /> Load Settings (last saved)</button>
+      <button class="toolbar-btn" @click.stop="loadSettings"><font-awesome-icon icon="folder-open" style="color: var(--color-gold)" /> Load Settings (last saved)</button>
     </div>
 
     <div class="settings-table">
@@ -342,7 +331,7 @@
           <tr class="settings-group-row">
             <td colspan="3">
               <span class="dc-toggle">▾</span>
-              <font-awesome-icon icon="chart-line" style="color: #4caf50" /> Charting
+              <font-awesome-icon icon="chart-line" style="color: var(--color-green)" /> Charting
             </td>
           </tr>
           <tr>
@@ -363,7 +352,7 @@
     <!-- Context menu -->
     <div v-if="context.visible" class="context-menu" :style="contextMenuStyle" @click.stop>
       <template v-if="context.mode === 'category'">
-        <button class="context-item" @click="addDevice(DEVICE_TYPES.Com)"><font-awesome-icon icon="plug" class="context-icon" style="color: #4caf50" /> Add COM Device</button>
+        <button class="context-item" @click="addDevice(DEVICE_TYPES.Com)"><font-awesome-icon icon="plug" class="context-icon" style="color: var(--color-green)" /> Add COM Device</button>
         <button class="context-item" @click="addDevice(DEVICE_TYPES.Ip)"><font-awesome-icon icon="network-wired" class="context-icon" style="color: var(--accent)" /> Add IP Device</button>
       </template>
       <template v-else-if="context.mode === 'device'">
@@ -376,7 +365,7 @@
 <style scoped>
   .unsaved-indicator {
     font-size: 12px;
-    color: #e6a817;
+    color: var(--color-gold);
     font-weight: 600;
     align-self: center;
   }
@@ -465,7 +454,7 @@
     flex-shrink: 0; 
   }
 
-  .com { color: #4caf50; }
+  .com { color: var(--color-green); }
   .ip  { color: var(--accent); }
 
 </style>

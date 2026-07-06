@@ -276,7 +276,7 @@
     color: var(--accent);
   }
   .conn-badge {
-    background: color-mix(in srgb, #888 12%, transparent);
+    background: color-mix(in srgb, var(--color-grey) 12%, transparent);
     color: var(--text-secondary);
   }
 

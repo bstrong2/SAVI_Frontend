@@ -2,8 +2,8 @@
   import { ref, computed, inject } from 'vue'
   import { PERMISSIONS, canAccess } from '../auth/roles.js'
   import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS } from '../constants/devices.js'
-  import { LOG_LEVELS } from '../constants/logLevels.js'
-  import { RUN_STATUS } from '../constants/runStatus.js'
+  import { LOG_LEVELS, RUN_STATUS } from '../constants/enums.js'
+  import { COLORS } from '../constants/colors.js'
 
 
   /////////////////////////////////////////////
@@ -134,7 +134,7 @@
 
     <!-- Collision Detector -->
     <template v-else-if="item.driver === DRIVERS.CollisionDetector">
-      <div class="collision-state" :style="{ color: item.textColor || (item.value === 'Collision!' ? '#ff5252' : '#69f0ae') }">
+      <div class="collision-state" :style="{ color: item.textColor || (item.value === 'Collision!' ? COLORS.lightRed : COLORS.lightGreen) }">
         <span class="collision-dot" />
         {{ item.value ?? 'No Contact' }}
       </div>

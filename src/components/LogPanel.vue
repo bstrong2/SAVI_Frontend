@@ -102,12 +102,12 @@
 
 /* Text color per log severity level. */
 .log-row.level-info    { color: var(--text-primary); }
-.log-row.level-warning { color: #daa520; }
-.log-row.level-error   { color: #f44336; }
+.log-row.level-warning { color: var(--color-goldenrod); }
+.log-row.level-error   { color: var(--color-red); }
 /* Critical entries get a red background to stand out immediately. */
 .log-row.level-critical {
-  color: #fff;
-  background: #c62828;
+  color: var(--color-white);
+  background: var(--color-crimson);
   font-weight: 600;
 }
 </style>

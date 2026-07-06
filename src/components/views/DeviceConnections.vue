@@ -174,7 +174,7 @@
     <!-- Toolbar -->
     <div class="view-toolbar">
       <button class="toolbar-btn" @click.stop="saveSettings"><font-awesome-icon icon="floppy-disk" style="color: var(--accent)" /> Save Settings</button>
-      <button class="toolbar-btn" @click.stop="loadSettings"><font-awesome-icon icon="folder-open" style="color: #e6a817" /> Load Settings</button>
+      <button class="toolbar-btn" @click.stop="loadSettings"><font-awesome-icon icon="folder-open" style="color: var(--color-gold)" /> Load Settings</button>
     </div>
 
     <!-- Column headers -->
@@ -202,8 +202,7 @@
         <template v-for="device in root.children" :key="device.id">
 
           <!-- Device row -->
-          <div class="dc-row dc-row-device" @click.stop="device.expanded = !device.expanded" 
-          @contextmenu="e => onDeviceRightClick(e, device)">
+          <div class="dc-row dc-row-device" @click.stop="device.expanded = !device.expanded" @contextmenu="e => onDeviceRightClick(e, device)">
             <div class="dc-col-name">
               <span class="dc-indent" />
               <span class="dc-toggle">{{ device.expanded ? '▾' : '▸' }}</span>
@@ -216,8 +215,7 @@
 
           <!-- Properties -->
           <template v-if="device.expanded">
-            <div v-for="prop in device.properties" :key="prop.name" class="dc-row dc-row-prop" 
-            :class="{ 'prop-edit-active': prop.editing }">
+            <div v-for="prop in device.properties" :key="prop.name" class="dc-row dc-row-prop" :class="{ 'prop-edit-active': prop.editing }">
               <div class="dc-col-name">
                 <span class="dc-indent" /><span class="dc-indent" />
                 {{ prop.name }}
@@ -235,8 +233,7 @@
 
                 <!-- Int edit -->
                 <input v-else-if="prop.propType === 'int'" type="number" step="1" class="dc-input dc-input-num" v-model="prop.value"
-                  @blur="commitEdit(prop)"
-                  @keydown="e => onEditKey(e, prop)"/>
+                  @blur="commitEdit(prop)" @keydown="e => onEditKey(e, prop)"/>
               </div>
 
               <div class="dc-col-desc">{{ prop.description }}</div>
@@ -251,7 +248,7 @@
     <div v-if="context.visible" class="context-menu" :style="contextMenuStyle" @click.stop>
       <template v-if="context.mode === 'category'">
         <button class="context-item" @click="addDevice('com')">
-          <font-awesome-icon icon="plug" class="context-icon" style="color: #4caf50" /> Add COM Device
+          <font-awesome-icon icon="plug" class="context-icon" style="color: var(--color-green)" /> Add COM Device
         </button>
         <button class="context-item" @click="addDevice('ip')">
           <font-awesome-icon icon="network-wired" class="context-icon" style="color: var(--accent)" /> Add IP Device
@@ -268,7 +265,6 @@
 </template>
 
 <style scoped>
-  /* dc standing for device connections */
   .dc-view {
     display: flex;
     flex-direction: column;
@@ -294,13 +290,27 @@
   }
 
   .dc-col-name  { 
-    width: 240px; flex-shrink: 0; padding: 0 8px; display: flex; align-items: center; gap: 4px; 
+    width: 240px; 
+    flex-shrink: 0; 
+    padding: 0 8px; 
+    display: flex;
+    align-items: center; 
+    gap: 4px; 
   }
   .dc-col-value { 
-    width: 200px; flex-shrink: 0; padding: 0 6px; display: flex; align-items: center; 
+    width: 200px;
+    flex-shrink: 0; 
+    padding: 0 6px; 
+    display: flex; 
+    align-items: center; 
   }
   .dc-col-desc  { 
-    flex: 1; padding: 0 8px; display: flex; align-items: center; font-size: 11px; color: var(--text-secondary); 
+    flex: 1; 
+    padding: 0 8px; 
+    display: flex; 
+    align-items: center; 
+    font-size: 11px; 
+    color: var(--text-secondary); 
   }
 
   .dc-row {
@@ -339,10 +349,14 @@
   }
 
   .dc-indent { 
-    display: inline-block; width: 18px; flex-shrink: 0; 
+    display: inline-block; 
+    width: 18px; 
+    flex-shrink: 0; 
   }
   .dc-toggle { 
-    font-size: 10px; color: var(--text-secondary); flex-shrink: 0; 
+    font-size: 10px; 
+    color: var(--text-secondary); 
+    flex-shrink: 0; 
   }
   .dc-device-icon { 
     flex-shrink: 0; 
@@ -379,6 +393,6 @@
     flex-shrink: 0;
   }
 
-  .com { color: #4caf50; }
+  .com { color: var(--color-green); }
   .ip  { color: var(--accent); }
 </style>

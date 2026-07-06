@@ -1,11 +1,7 @@
-/* Forces all elements to include padding and border in their stated width/height
-   so layout math is predictable everywhere. */
 *, *::before, *::after { 
   box-sizing: border-box; 
 }
 
-/* Removes default browser margin/padding, fills the full viewport height,
-   and sets the base font used across the whole app. */
 html, body {
   margin: 0;
   padding: 0;
@@ -14,11 +10,6 @@ html, body {
   font-size: 13px;
 }
 
-/*
- * ==========================================
- * Theme
- * ==========================================
- */
 /* Light theme */
 :root {
   --bg-ribbon-title: #e4f4f4;
@@ -139,7 +130,7 @@ input[readonly]:focus, textarea[readonly]:focus {
 
 .btn-primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--color-white);
   border-color: var(--accent);
 }
 .btn-primary:hover {
@@ -157,13 +148,13 @@ input[readonly]:focus, textarea[readonly]:focus {
 }
 
 .btn-danger {
-  background: #dc3545;
-  color: #fff;
-  border-color: #dc3545;
+  background: var(--color-dangerRed);
+  color: var(--color-white);
+  border-color: var(--color-dangerRed);
 }
 .btn-danger:hover {
-  background: #c82333;
-  border-color: #c82333;
+  background: var(--color-dangerRedDark);
+  border-color: var(--color-dangerRedDark);
 }
 
 
@@ -206,7 +197,7 @@ input[readonly]:focus, textarea[readonly]:focus {
 .toolbar-btn.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--color-white);
 }
 
 
@@ -338,8 +329,8 @@ input[readonly]:focus, textarea[readonly]:focus {
 }
 
 .context-item-danger {
-  color: #e53935;
+  color: var(--color-darkRed);
 }
 .context-item-danger:hover {
-  background: #fdecea;
+  background: var(--color-roseTint);
 }

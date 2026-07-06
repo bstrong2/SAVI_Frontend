@@ -1,8 +1,8 @@
 <script setup>
 import { computed } from 'vue'
 import { PERMISSIONS, canAccess } from '../auth/roles.js'
-import { RUN_COMMANDS, OTHER_COMMANDS } from '../constants/commands.js'
-import { RUN_STATUS } from '../constants/runStatus.js'
+import { RUN_COMMANDS, OTHER_COMMANDS, RUN_STATUS, VIEWS } from '../constants/enums.js'
+import { COLORS } from '../constants/colors.js'
 
 /////////////////////////////////////////////
 // Define variables.
@@ -17,11 +17,11 @@ const props = defineProps({
 
 // Define what buttons are available based on what user level is logged in.
 const allScreensButtons = [
-  { id: 'device-layout', icon: 'table-cells', color: '#60A5FA', label: 'Device Layout', permission: PERMISSIONS.Public },
-  { id: 'logging-details', icon: 'chart-line', color: '#A78BFA', label: 'Log Details', permission: PERMISSIONS.AuthRequired },
-  { id: 'recipe', icon: 'list-check', color: '#FB923C', label: 'Recipe (WIP)', permission: PERMISSIONS.OperatorOnly },
-  { id: 'settings', icon: 'gear', color: '#9CA3AF', label: 'Settings', permission: PERMISSIONS.OperatorOnly },
-  { id: 'users', icon: 'users', color: '#A78BFA', label: 'Users', permission: PERMISSIONS.AdminOnly},
+  { id: VIEWS.DeviceLayout,   icon: 'table-cells', color: COLORS.lightBlue, label: 'Device Layout', permission: PERMISSIONS.Public },
+  { id: VIEWS.LoggingDetails, icon: 'chart-line',  color: COLORS.violet,    label: 'Log Details',   permission: PERMISSIONS.AuthRequired },
+  { id: VIEWS.Recipe,         icon: 'list-check',  color: COLORS.amber,     label: 'Recipe (WIP)',  permission: PERMISSIONS.OperatorOnly },
+  { id: VIEWS.Settings,       icon: 'gear',        color: COLORS.gray,      label: 'Settings',      permission: PERMISSIONS.OperatorOnly },
+  { id: VIEWS.Users,          icon: 'users',       color: COLORS.violet,    label: 'Users',         permission: PERMISSIONS.AdminOnly },
 ]
 
 // define emits
@@ -43,7 +43,7 @@ const isAdmin    = computed(() => canAccess(props.currentUser, PERMISSIONS.Admin
 const canOperate = computed(() => canAccess(props.currentUser, PERMISSIONS.OperatorOnly))
 
 const themeIcon  = computed(() => props.isDark ? 'sun' : 'moon')
-const themeColor = computed(() => props.isDark ? '#FB923C' : '#94A3B8')
+const themeColor = computed(() => props.isDark ? COLORS.amber : COLORS.slate)
 const themeTitle = computed(() => props.isDark ? 'Switch to light mode' : 'Switch to dark mode')
 
 // Determine what buttons to show in the ribbon based on the users access level.
@@ -65,7 +65,7 @@ function handleRun(cmd) {
 
 <template>
   <div class="ribbon">
-    <div class="ribbon-title" style="cursor:pointer" @click="emit('navigate', 'device-layout')">
+    <div class="ribbon-title" style="cursor:pointer" @click="emit('navigate', VIEWS.DeviceLayout)">
       <img src="/logo.png" alt="SAVI" class="ribbon-logo" />
       <div class="logo-text">
         <div class="logo-name">SAVI</div>
@@ -87,7 +87,7 @@ function handleRun(cmd) {
       </div>
 
       <!-- Run Options — only on Log Details screen, only for Admin/Operator -->
-      <div v-if="activeView == 'logging-details' && canOperate" class="ribbon-group">
+      <div v-if="activeView === VIEWS.LoggingDetails && canOperate" class="ribbon-group">
         <div class="ribbon-group-btns">
           <button v-if="showStart" class="ribbon-btn run-start" @click="handleRun(RUN_COMMANDS.Start)"><font-awesome-icon icon="play" class="ribbon-icon"/>Start</button>
           <button v-if="showLogOnly" class="ribbon-btn run-log-only" @click="handleRun(RUN_COMMANDS.LogOnly)"><font-awesome-icon icon="file-pen" class="ribbon-icon"/>Log Only</button>
@@ -102,13 +102,13 @@ function handleRun(cmd) {
       <div class="ribbon-group">
         <div class="ribbon-group-btns">
           <button v-if="canOperate" class="ribbon-btn" @click="emit('other-command', OTHER_COMMANDS.GenerateReport)">
-            <font-awesome-icon icon="clipboard-list" style="color:#FB923C" class="ribbon-icon" />Generate Report
+            <font-awesome-icon icon="clipboard-list" :style="{ color: COLORS.amber }" class="ribbon-icon" />Generate Report
           </button>
           <button v-if="currentUser" class="ribbon-btn" @click="emit('other-command', OTHER_COMMANDS.Logout)">
-            <font-awesome-icon icon="lock-open" style="color:#FBBF24" class="ribbon-icon" />Logout
+            <font-awesome-icon icon="lock-open" :style="{ color: COLORS.lightAmber }" class="ribbon-icon" />Logout
           </button>
           <button v-else class="ribbon-btn" @click="emit('other-command', OTHER_COMMANDS.Login)">
-            <font-awesome-icon icon="key" style="color:#FBBF24" class="ribbon-icon" />Login
+            <font-awesome-icon icon="key" :style="{ color: COLORS.lightAmber }" class="ribbon-icon" />Login
           </button>
         </div>
         <div class="ribbon-group-label">Other Options</div>
@@ -257,7 +257,7 @@ function handleRun(cmd) {
 .ribbon-btn.active {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff !important;
+  color: var(--color-white) !important;
 }
 
 /* Large icon that sits above the button's text label. */
@@ -267,15 +267,15 @@ function handleRun(cmd) {
 }
 .ribbon-btn.active .ribbon-icon,
 .ribbon-btn:active .ribbon-icon {
-  color: #fff !important;
+  color: var(--color-white) !important;
 }
 
 /* Per-button accent colors for the run-control buttons when they are not active. */
-.ribbon-btn.run-start:not(.active)    { color: #388e3c; }
-.ribbon-btn.run-log-only:not(.active) { color: #0097a7; }
-.ribbon-btn.run-pause:not(.active)    { color: #f57c00; }
-.ribbon-btn.run-resume:not(.active)   { color: #0288d1; }
-.ribbon-btn.run-stop:not(.active)     { color: #d32f2f; }
+.ribbon-btn.run-start:not(.active)    { color: var(--color-darkGreen); }
+.ribbon-btn.run-log-only:not(.active) { color: var(--color-cyan); }
+.ribbon-btn.run-pause:not(.active)    { color: var(--color-darkOrange); }
+.ribbon-btn.run-resume:not(.active)   { color: var(--color-skyBlue); }
+.ribbon-btn.run-stop:not(.active)     { color: var(--color-darkRed); }
 
 /* Right-side ribbon panel containing the connection status dot and logged-in username. */
 .ribbon-right {

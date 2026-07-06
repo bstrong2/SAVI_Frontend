@@ -1,7 +1,7 @@
 ﻿<script setup>
   import { ref, computed, inject, watch, onMounted } from 'vue'
   import { ITEM_TYPES, DRIVERS } from '../constants/devices.js'
-  import { LOG_LEVELS } from '../constants/logLevels.js'
+  import { LOG_LEVELS } from '../constants/enums.js'
 
 
   /////////////////////////////////////////////
@@ -250,7 +250,7 @@
   font-style: italic;
 }
 
-.recipe-error { color: #f44336; }
+.recipe-error { color: var(--color-red); }
 
 .recipe-listbox {
   width: 100%;
@@ -295,7 +295,7 @@
   font-size: 11px;
   font-weight: 400;
   text-transform: none;
-  color: #f57c00;
+  color: var(--color-darkOrange);
   font-style: italic;
 }
 </style>

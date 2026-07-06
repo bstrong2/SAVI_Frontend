@@ -1,6 +1,6 @@
 ﻿<script setup>
   import { ref, onMounted, inject } from 'vue'
-  import { LOG_LEVELS } from '../constants/logLevels.js'
+  import { LOG_LEVELS } from '../constants/enums.js'
 
 
   /////////////////////////////////////////////
@@ -236,8 +236,8 @@
   .run-list-item:hover    { 
     background: var(--bg-table-hover); 
   }
-  .run-list-item.selected { 
-    background: var(--accent); color: #fff; 
+  .run-list-item.selected {
+    background: var(--accent); color: var(--color-white);
   }
 
   .run-list-empty {

@@ -6,8 +6,9 @@
   import ColorPickerPopup from '../ColorPickerPopup.vue'
   import { PERMISSIONS, canAccess } from '../../auth/roles.js'
   import { ITEM_TYPES, DRIVERS, DEVICE_TYPES, DEVICE_PROPS, DRIVER_DEFAULTS } from '../../constants/devices.js'
-  import { LOG_LEVELS } from '../../constants/logLevels.js'
-  import { PICKER_TYPES } from '../../constants/picker.js'
+  import { COLORS } from '../../constants/colors.js'
+  import { LOG_LEVELS } from '../../constants/enums.js'
+  import { PICKER_TYPES } from '../../constants/devices.js'
 
 
   /////////////////////////////////////////////
@@ -43,11 +44,8 @@
   const resetToolbarFlag = () => setTimeout(() => { mouseDownInToolbar = false }, 0)
 
   const PRESET_COLORS = [
-    '#1e90ff', '#00bcd4', '#009688',
-    '#4caf50', '#8bc34a', '#ffeb3b', '#ff9800',
-    '#f44336', '#e91e63', '#9c27b0', '#673ab7',
-    '#795548', '#607d8b', '#9e9e9e', '#ffffff',
-    '#000000',
+    COLORS.dodgerBlue, COLORS.lightCyan, COLORS.teal, COLORS.green, COLORS.limeGreen, COLORS.yellow, COLORS.orange,
+    COLORS.red, COLORS.pink, COLORS.deepPurple, COLORS.indigo, COLORS.brown, COLORS.blueGrey, COLORS.grey, COLORS.white, COLORS.black,
   ]
 
   /////////////////////////////////////////////
@@ -123,7 +121,6 @@
   }
 
   // Register a simulated sensor in the backend SensorSimulationService.
-  // On success, syncs state from the backend's value.
   async function registerSimulatedSensor(item) {
     try {
       const response = await fetch(`${BACKEND_URL}/api/simulate/register`, {
@@ -148,11 +145,15 @@
   }
 
   function resolveDeviceId(connection) {
-    if (!connection || connection === DRIVERS.Simulated) return null
+
+    if (!connection || connection === DRIVERS.Simulated) 
+      return null
     for (const d of devices.value) {
       if (d.type === DEVICE_TYPES.Ip) {
         const ip = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
-        if (ip === connection) return d.id
+
+        if (ip === connection) 
+          return d.id
       }
     }
     return null
@@ -248,7 +249,7 @@
       pin: pin ?? null, 
       x: 80, 
       y: 80,
-      color: '#1e90ff', 
+      color: COLORS.dodgerBlue,
       textColor: null,
       ...driverDefaults,
     }
@@ -273,7 +274,7 @@
       y: 80, 
       w: 200, 
       h: 150,
-      color: '#1e90ff', 
+      color: COLORS.dodgerBlue,
       textColor: null, 
       fontSize: 16, 
       fontWeight: 'normal', 
@@ -528,7 +529,7 @@
     <div class="view-toolbar" @mousedown="mouseDownInToolbar = true">
       <!-- ── Non-edit mode ── -->
       <template v-if="!isEditMode">
-        <button v-if="canOperate" class="toolbar-btn" @click.stop="startEdit"><font-awesome-icon icon="pen" style="color: #e6a817" /> Edit</button>
+        <button v-if="canOperate" class="toolbar-btn" @click.stop="startEdit"><font-awesome-icon icon="pen" style="color: var(--color-gold)" /> Edit</button>
         <div v-if="canOperate" class="dropdown-wrapper">
           <button class="toolbar-btn" @click.stop="showAddMenu = !showAddMenu">+ Add ▾</button>
           <div v-if="showAddMenu" class="dropdown-menu">
@@ -541,7 +542,7 @@
       <!-- ── Edit mode ── -->
       <template v-else>
         <button v-if="selectedId !== null" class="toolbar-btn toolbar-btn-danger" @click="deleteSelected"><font-awesome-icon icon="trash" /> Delete</button>
-        <button class="toolbar-btn active" @click="doneEdit"><font-awesome-icon icon="check" style="color: #4caf50" /> Done Editing</button>
+        <button class="toolbar-btn active" @click="doneEdit"><font-awesome-icon icon="check" style="color: var(--color-green)" /> Done Editing</button>
 
         <!-- Background and text color pickers, will only show up if the selected object. -->
         <template v-if="selectedItem">
@@ -566,7 +567,7 @@
             :show="showTextColorPicker"
             :colors="PRESET_COLORS"
             :model-value="selectedItem.textColor"
-            :preview-style="{ background: selectedItem.textColor ?? '#ffffff', border: selectedItem.textColor ? 'none' : '1px solid #aaa' }"
+            :preview-style="{ background: selectedItem.textColor ?? COLORS.white, border: selectedItem.textColor ? 'none' : `1px solid ${COLORS.grey}` }"
             @toggle="openTextColorPicker"
             @pick="pickTextColor"
             @confirm="confirmTextColor"
@@ -609,22 +610,11 @@
     <div class="device-canvas-wrapper" ref="wrapperRef">
       <div class="device-canvas" :style="canvasStyle">
         <template v-for="item in items" :key="item.id">
-          <SensorTile
-            v-if="item.type === ITEM_TYPES.Sensor"
-            :item="item"
-            :is-edit-mode="isEditMode"
-            :is-selected="selectedId === item.id"
-            @drag-start="startDrag(item, $event)"
-            @select="selectedId = item.id"
+          <SensorTile v-if="item.type === ITEM_TYPES.Sensor" :item="item" :is-edit-mode="isEditMode" :is-selected="selectedId === item.id"
+            @drag-start="startDrag(item, $event)" @select="selectedId = item.id"
           />
-          <RectTile
-            v-else-if="item.type === ITEM_TYPES.Rect"
-            :item="item"
-            :is-edit-mode="isEditMode"
-            :is-selected="selectedId === item.id"
-            @drag-start="startDrag(item, $event)"
-            @resize-start="startResize(item, $event)"
-            @select="selectRect(item, $event)"
+          <RectTile v-else-if="item.type === ITEM_TYPES.Rect" :item="item" :is-edit-mode="isEditMode" :is-selected="selectedId === item.id"
+            @drag-start="startDrag(item, $event)" @resize-start="startResize(item, $event)" @select="selectRect(item, $event)"
           />
         </template>
       </div>
@@ -746,12 +736,12 @@
   }
 
   .toolbar-btn-danger {
-    color: #f44336;
-    border-color: #f44336;
+    color: var(--color-red);
+    border-color: var(--color-red);
   }
   .toolbar-btn-danger:hover {
-    background: #f44336;
-    color: #fff;
+    background: var(--color-red);
+    color: var(--color-white);
   }
 
   .toolbar-sep {

@@ -7,10 +7,10 @@ const ROLE_LEVEL = { Viewer: 0, Operator: 1, Admin: 2 }
 // Make sure nowhere in the application that we can change what permissions there are. This really should only be changed
 // if there is a feature that someone wants that requires a new role to be added. Should never change at runtime.
 export const PERMISSIONS = Object.freeze({
-  Public:       -1,  // everyone, even logged out
-  AuthRequired:  0,  // any logged-in user (Viewer)
-  OperatorOnly:  1,  // Operator
-  AdminOnly:     2,  // Admin only
+  Public: -1, // everyone, even logged out
+  AuthRequired: 0, // any logged-in user (Viewer)
+  OperatorOnly: 1, // Operator
+  AdminOnly: 2, // Admin only
 })
 
 // Determine what permission someone has.
