@@ -195,9 +195,18 @@
     const conn = new signalR.HubConnectionBuilder().withUrl(`${BACKEND_URL}/saviHub`).withAutomaticReconnect().build()
 
     conn.on('ReceiveServerMessage', (msg) => addLog(msg, LOG_LEVELS.Info))
-    conn.on('ReceiveMessage', (sender, msg)  => addLog(`${sender}: ${msg}`, LOG_LEVELS.Info))
     conn.on('ReceiveLog', (ts, msg, lvl) => logEntries.value.push({ timestamp: ts, message: msg, level: lvl }))
     conn.on('RunStateChanged', (state) => addLog(`Run state: ${state}`, LOG_LEVELS.Info))
+
+    // Backend finished a recipe's steps on its own (e.g. browser was closed mid-run) —
+    // the run is already marked Stopped server-side, just reset local UI state to match.
+    conn.on('RecipeCompleted', (runId) => {
+      if (String(runInfo.value?.dbRunId) !== String(runId))
+        return
+
+      runState.value = RUN_STATUS.Idle
+      runInfo.value = { ...runInfo.value, status: RUN_STATUS.Stopped, selectedSensors: [] }
+    })
 
     conn.onreconnecting(() => { connectionStatus.value = CONNECTION_STATUS.Reconnecting })
     conn.onreconnected(() => { connectionStatus.value = CONNECTION_STATUS.Connected })

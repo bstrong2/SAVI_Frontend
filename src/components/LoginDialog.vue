@@ -82,7 +82,7 @@
         <label class="dialog-label">Password:</label>
         <input type="password" class="dialog-input" v-model="password" @keydown.enter="submit" @keydown="checkCaps" @keyup="checkCaps"/>
       </div>
-      <div v-if="capsLockOn" class="caps-warning">⇪ Caps Lock is on</div>
+      <div v-if="capsLockOn" class="caps-warning">Caps Lock is on</div>
       <div v-if="error" class="login-error">{{ error }}</div>
       <div class="dialog-footer">
         <button class="btn btn-primary" :disabled="loading" @click="submit">

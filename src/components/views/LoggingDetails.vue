@@ -1,6 +1,6 @@
 <script setup>
   import { ref, computed, inject, watch, onMounted, onUnmounted } from 'vue'
-  import { LOG_LEVELS, RUN_STATUS, RUN_COMMANDS } from '../../constants/enums.js'
+  import { LOG_LEVELS, RUN_STATUS } from '../../constants/enums.js'
   import { ITEM_TYPES, DRIVERS } from '../../constants/devices.js'
   import { CHART_PALETTE, MAX_CHART_POINTS, chartHexToRgba } from '../../constants/chart.js'
   import { COLORS } from '../../constants/colors.js'
@@ -26,7 +26,6 @@
   const showStartRunDialog = inject('showStartRunDialog')
   const showLogOnlyDialog = inject('showLogOnlyDialog')
   const resolveDeviceId = inject('resolveDeviceId')
-  const handleRunCommand = inject('handleRunCommand')
   const selectedSensorId = ref(null)
   let lastChartPlotMs = 0
 
@@ -304,36 +303,6 @@
     }
   }
 
-  function pushChartPoint(sensorId, value) {
-    const datasets = chartData.value.datasets
-    const idx = datasets.findIndex(ds => ds.sensorId === sensorId)
-
-    if (idx === -1) 
-      return
-
-    const label = fmtDateTime()
-    const newData = [...datasets[idx].data, value]
-    if (newData.length > MAX_CHART_POINTS) 
-      newData.shift()
-
-    const newDatasets = datasets.map((ds, i) => i === idx ? { ...ds, data: newData } : { ...ds })
-    const newLabels = [...chartData.value.labels, label]
-
-    if (newLabels.length > MAX_CHART_POINTS) 
-      newLabels.shift()
-
-    chartData.value = { labels: newLabels, datasets: newDatasets }
-
-    const dbRunId = runInfo.value?.dbRunId
-    if (dbRunId && authToken.value) {
-      fetch(`${BACKEND_URL}/api/run/${dbRunId}/readings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken.value}` },
-        body: JSON.stringify({ readings: [{ canvasId: sensorId, value }] }),
-      }).catch(e => addLog(`Failed to write reading to DB: ${e.message}`, LOG_LEVELS.Warning))
-    }
-  }
-
   function handleSensorUpdate(sensorId, value) {
     const tile = layoutItems.value?.find(i => i.id === sensorId && i.type === ITEM_TYPES.Sensor)
     if (tile) {
@@ -443,7 +412,9 @@
 
     const dbRunId = runInfo.value?.dbRunId
 
-    if (dbRunId && authToken.value) {
+    // During a recipe run the backend (RecipeExecutionService) already persists readings for the
+    // relay it's driving, so the frontend only needs to write readings for genuine Log Only runs.
+    if (dbRunId && authToken.value && !runInfo.value?.recipeName) {
       const readings = loggedSensors.value
       .filter(s => valueMap.has(s.id))
       .map(s => ({ canvasId: s.id, value: valueMap.get(s.id) }))
@@ -480,65 +451,20 @@
     }
   }
 
-  async function callRelay(sensor, state) {
+  // Recipe steps now execute server-side (RecipeExecutionService) so they keep running even if
+  // this tab closes. The frontend just tells the backend which relay to drive.
+  function buildRelayTarget(sensor) {
+    if (!sensor)
+      return null
 
-    if (!sensor) 
-      return
+    if (sensor.connection === DRIVERS.Simulated)
+      return { canvasId: sensor.id, isSimulated: true, deviceId: null, pin: null }
 
-    try {
-      if (sensor.connection === DRIVERS.Simulated) {
-        await fetch(`${BACKEND_URL}/api/simulate/relay/${sensor.id}/${state ? 'on' : 'off'}`, {
-          method: 'POST',
-          headers: authToken.value ? { Authorization: `Bearer ${authToken.value}` } : {},
-        })
-      } else {
-        const deviceId = resolveDeviceId(sensor.connection)
-        if (deviceId !== null && sensor.pin != null) {
-          await fetch(`${BACKEND_URL}/api/devices/${deviceId}/do`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pin: sensor.pin, state, canvasId: sensor.id }),
-          })
-        }
-      }
-    } catch (e) {
-      addLog(`Relay command failed: ${e.message}`, LOG_LEVELS.Warning)
-    }
+    const deviceId = resolveDeviceId(sensor.connection)
+    if (deviceId === null || sensor.pin == null)
+      return null
 
-    // Mirror tile state and push chart point — real Pi relays have no SimulatedSensorState broadcast.
-    const tile = layoutItems.value.find(i => i.id === sensor.id)
-
-    if (tile) 
-      tile.relayState = state ? 'on' : 'off'
-    
-    pushChartPoint(sensor.id, state ? 1 : 0)
-  }
-
-  async function executeRecipe(recipe, doSensor, diSensor) {
-    const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
-    addLog(`Executing recipe: ${recipe.name} (${recipe.steps.length} steps)`, LOG_LEVELS.Info)
-
-    for (const step of recipe.steps) {
-
-      if (runState.value !== RUN_STATUS.Running) 
-        break
-      
-      if (step.action === 'relay/on')
-        await callRelay(doSensor, true)
-      
-      if (step.action === 'relay/off') 
-        await callRelay(doSensor, false)
-
-      await delay(step.durationMs)
-    }
-
-    if (doSensor) 
-      await callRelay(doSensor, false)
-
-    if (runState.value === RUN_STATUS.Running) {
-      addLog(`Recipe complete — stopping run`, LOG_LEVELS.Info)
-      handleRunCommand(RUN_COMMANDS.Stop)
-    }
+    return { canvasId: sensor.id, isSimulated: false, deviceId, pin: sensor.pin }
   }
 
   async function handleStartConfirmed(info) {
@@ -570,7 +496,6 @@
     const sensorNames = recipeSensors.map(s => s.name).join(', ') || 'none'
     addLog(`Run started by ${info.startedBy} — Recipe: ${info.recipeName} — Sensors: ${sensorNames}`, LOG_LEVELS.Info)
 
-    let recipe = null
     try {
       const response = await fetch(`${BACKEND_URL}/api/run/start`, {
         method: 'POST',
@@ -578,22 +503,23 @@
           'Content-Type': 'application/json',
           ...(authToken.value ? { Authorization: `Bearer ${authToken.value}` } : {}),
         },
-        body: JSON.stringify({ recipeName: info.recipeName, startedBy: info.startedBy, notes: info.notes }),
+        body: JSON.stringify({
+          recipeName: info.recipeName,
+          startedBy: info.startedBy,
+          notes: info.notes,
+          doSensor: buildRelayTarget(info.doSensor),
+        }),
       })
 
       if (response.ok) {
         const data = await response.json()
         runInfo.value = { ...runInfo.value, dbRunId: parseInt(data.runId) }
-        recipe = data.recipe ?? null
       } else {
         addLog(`Failed to create run record (HTTP ${response.status})`, LOG_LEVELS.Warning)
       }
     } catch (e) {
       addLog(`Failed to create run record: ${e.message}`, LOG_LEVELS.Warning)
     }
-
-    if (recipe?.steps?.length) 
-      executeRecipe(recipe, info.doSensor, info.diSensor)
   }
 
   async function handleLogOnlyConfirmed(info) {
