@@ -162,11 +162,8 @@
   // Register a non-simulated sensor
   async function registerRealSensor(item) {
     try {
-      await fetch(`${BACKEND_URL}/api/sensors/register-canvas`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ canvasId: item.id, name: item.name, driver: item.driver }),
-      })
+      const params = new URLSearchParams({ canvasId: item.id, name: item.name, driver: item.driver })
+      await fetch(`${BACKEND_URL}/api/sensors/register-canvas?${params.toString()}`, { method: 'POST' })
     } catch (e) {
       addLog(`Sensor registration failed for "${item.name}": ${e.message}`, LOG_LEVELS.Warning)
     }
@@ -176,10 +173,8 @@
       const deviceId = resolveDeviceId(item.connection)
       if (deviceId !== null) {
         try {
-          await fetch(`${BACKEND_URL}/api/devices/${deviceId}/di/monitor`, {
+          await fetch(`${BACKEND_URL}/api/devices/${deviceId}/di/monitor?pin=${item.pin}&canvasId=${item.id}`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pin: item.pin, canvasId: item.id }),
           })
         } catch (e) {
           addLog(`DI monitor setup failed for "${item.name}": ${e.message}`, LOG_LEVELS.Warning)
@@ -284,12 +279,29 @@
     saveLayout()
   }
 
-  function deleteSelected() {
+  async function deleteSelected() {
 
     if (selectedId.value !== null) {
+      const item = items.value.find(s => s.id === selectedId.value)
       items.value = items.value.filter(s => s.id !== selectedId.value)
       selectedId.value = null
       saveLayout()
+
+      // If a real (non-simulated) collision detector tile is deleted, tell the Pi
+      // to stop monitoring its GPIO pin so it doesn't keep polling and broadcasting for it.
+      if (item?.type === ITEM_TYPES.Sensor && item.driver === DRIVERS.CollisionDetector
+          && item.connection !== DRIVERS.Simulated && item.pin != null) {
+        const deviceId = resolveDeviceId(item.connection)
+        if (deviceId !== null) {
+          try {
+            await fetch(`${BACKEND_URL}/api/devices/${deviceId}/di/unmonitor?pin=${item.pin}`, {
+              method: 'POST',
+            })
+          } catch (e) {
+            addLog(`DI unmonitor failed for "${item.name}": ${e.message}`, LOG_LEVELS.Warning)
+          }
+        }
+      }
     }
   }
 

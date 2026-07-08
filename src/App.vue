@@ -80,10 +80,8 @@
   /////////////////////////////////////////////
   // Defining all functions.
   function syncPollInterval(seconds) {
-    fetch(`${BACKEND_URL}/api/settings/poll-interval`, {
+    fetch(`${BACKEND_URL}/api/settings/poll-interval?intervalSeconds=${seconds}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body:JSON.stringify({ intervalSeconds: seconds }),
     }).catch(e => addLog(`Failed to sync poll interval: ${e.message}`, LOG_LEVELS.Warning))
   }
 

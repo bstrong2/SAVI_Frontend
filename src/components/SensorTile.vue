@@ -76,10 +76,8 @@
           addLog(`Relay "${item.name}" has no pin configured. Please delete and re-add the relay with an associated pin this time.`, LOG_LEVELS.Warning)
         } else {
           try {
-            await fetch(`${BACKEND_URL}/api/devices/${deviceId}/do`, {
+            await fetch(`${BACKEND_URL}/api/devices/${deviceId}/do?pin=${item.pin}&state=${state === 'on'}&canvasId=${item.id}`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ pin: item.pin, state: state === 'on', canvasId: item.id }),
             })
           } catch (e) {
             addLog(`Relay command failed: ${e.message}`, LOG_LEVELS.Warning)

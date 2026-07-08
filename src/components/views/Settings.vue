@@ -1,6 +1,6 @@
 ﻿<script setup>
   import { ref, computed, watch, inject, onMounted, onUnmounted, nextTick } from 'vue'
-  import { DEVICE_TYPES, DEVICE_PROPS } from '../../constants/devices.js'
+  import { ITEM_TYPES, DRIVERS, DEVICE_TYPES, DEVICE_PROPS } from '../../constants/devices.js'
   import { LOG_LEVELS } from '../../constants/enums.js'
 
 
@@ -13,6 +13,7 @@
   const saveAppSettings = inject('saveAppSettings', () => {})
   const generalSettings = inject('generalSettings')
   const devices = inject('devices')
+  const layoutItems = inject('layoutItems', ref([]))
 
   const settings = ref([
     { id: 1, depth: 0, name: 'Connection', value: '', description: 'Connection settings', type: 'group', expanded: true },
@@ -165,9 +166,30 @@
     hideContext()
   }
 
-  function deleteDevice(device) {
-    devices.value = devices.value.filter(d => d.id !== device.id)
+  async function deleteDevice(device) {
     hideContext()
+
+    // Tell the Pi to stop monitoring any DI pins wired to this device before we forget
+    // its IP/port — otherwise it keeps polling and broadcasting for pins nobody reads anymore.
+    if (device.type === DEVICE_TYPES.Ip) {
+      const ip = device.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
+      const monitoredTiles = ip
+        ? layoutItems.value.filter(i => i.type === ITEM_TYPES.Sensor && i.driver === DRIVERS.CollisionDetector
+            && i.connection === ip && i.pin != null)
+        : []
+
+      for (const item of monitoredTiles) {
+        try {
+          await fetch(`${BACKEND_URL}/api/devices/${device.id}/di/unmonitor?pin=${item.pin}`, {
+            method: 'POST',
+          })
+        } catch (e) {
+          addLog?.(`DI unmonitor failed for "${item.name}" before removing device: ${e.message}`, LOG_LEVELS.Warning)
+        }
+      }
+    }
+
+    devices.value = devices.value.filter(d => d.id !== device.id)
   }
 
   function startDevEdit(prop) {
