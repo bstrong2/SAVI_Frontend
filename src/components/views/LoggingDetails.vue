@@ -420,15 +420,13 @@
       .map(s => ({ canvasId: s.id, value: valueMap.get(s.id) }))
 
       if (readings.length > 0) {
-        const params = new URLSearchParams()
-        for (const r of readings) {
-          params.append('canvasId', r.canvasId)
-          params.append('value', r.value)
-        }
-
-        fetch(`${BACKEND_URL}/api/run/${dbRunId}/readings?${params.toString()}`, {
+        fetch(`${BACKEND_URL}/api/run/${dbRunId}/readings`, {
           method: 'POST',
-          headers: { Authorization: `Bearer ${authToken.value}` },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken.value}`,
+          },
+          body: JSON.stringify(readings),
         }).catch(e => addLog(`Failed to write readings to DB: ${e.message}`, LOG_LEVELS.Warning))
       }
     }
@@ -450,6 +448,7 @@
 
       fetch(`${BACKEND_URL}/api/devices/${deviceId}/di/monitor?pin=${item.pin}&canvasId=${item.id}`, {
         method: 'POST',
+        headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
       }).catch(e => addLog(`DI monitor re-setup failed after reconnect: ${e.message}`, LOG_LEVELS.Warning))
     }
   }
@@ -477,11 +476,15 @@
       const request = s.connection === DRIVERS.Simulated
         ? fetch(`${BACKEND_URL}/api/simulate/register`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {}),
+            },
             body: JSON.stringify({ canvasId: s.id, name: s.name, driver: s.driver }),
           })
         : fetch(`${BACKEND_URL}/api/sensors/register-canvas?${new URLSearchParams({ canvasId: s.id, name: s.name, driver: s.driver }).toString()}`, {
             method: 'POST',
+            headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
           })
 
       await request.catch(e => addLog(`Sensor pre-registration failed: ${e.message}`, LOG_LEVELS.Warning))

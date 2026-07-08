@@ -12,7 +12,7 @@
   import Users from './components/views/Users.vue'
   import { LOG_LEVELS, RUN_COMMANDS, OTHER_COMMANDS, RUN_STATUS, CONNECTION_STATUS, VIEWS } from './constants/enums.js'
   import { PERMISSIONS, canAccess } from './auth/roles.js'
-  import { DEVICE_TYPES, DEVICE_PROPS } from './constants/devices.js'
+  import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS } from './constants/devices.js'
   import { COLORS } from './constants/colors.js'
 
 
@@ -80,15 +80,25 @@
   /////////////////////////////////////////////
   // Defining all functions.
   function syncPollInterval(seconds) {
+    if (!authToken.value)
+      return
+
     fetch(`${BACKEND_URL}/api/settings/poll-interval?intervalSeconds=${seconds}`, {
       method: 'PATCH',
+      headers: { Authorization: `Bearer ${authToken.value}` },
     }).catch(e => addLog(`Failed to sync poll interval: ${e.message}`, LOG_LEVELS.Warning))
   }
 
   function saveAppSettings() {
+    if (!authToken.value)
+      return
+
     fetch(`${BACKEND_URL}/api/settings`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken.value}`,
+      },
       body: JSON.stringify({
         theme: isDark.value ? 'dark' : 'light',
         chartPlotInterval: chartPlotInterval.value,
@@ -142,8 +152,26 @@
   function handleLogout() {
     authToken.value = null
     currentUser.value = null
+    sessionStorage.removeItem('savi-auth')
     activeView.value = VIEWS.DeviceLayout
     addLog('Logged out', LOG_LEVELS.Info)
+  }
+
+  // Restore the session after a page refresh, as long as the token hasn't expired.
+  // sessionStorage (not localStorage) so the session dies with the tab.
+  function restoreSession() {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('savi-auth'))
+
+      if (saved?.token && new Date(saved.expiresAt) > new Date()) {
+        authToken.value = saved.token
+        currentUser.value = { username: saved.username, role: saved.role }
+      } else {
+        sessionStorage.removeItem('savi-auth')
+      }
+    } catch {
+      sessionStorage.removeItem('savi-auth')
+    }
   }
 
   /////////////////////////////////////////////
@@ -171,6 +199,7 @@
   /////////////////////////////////////////////
   // Mounts
   onMounted(async () => {
+    restoreSession()
     loadTheme()
 
     // Load saved device configs so they're available in every view immediately
@@ -223,12 +252,16 @@
 
   onUnmounted(() => connection.value?.stop())
 
-  function resolveDeviceId(ip) {
+  // Map a tile's connection (a device IP, or Simulated) to the matching device's ID.
+  function resolveDeviceId(connection) {
+    if (!connection || connection === DRIVERS.Simulated)
+      return null
+
     for (const d of devices.value) {
       if (d.type === DEVICE_TYPES.Ip) {
-        const dip = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
+        const ip = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
 
-        if (dip === ip) 
+        if (ip === connection)
           return d.id
       }
     }

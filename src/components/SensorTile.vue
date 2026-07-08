@@ -1,7 +1,7 @@
 <script setup>
   import { ref, computed, inject } from 'vue'
   import { PERMISSIONS, canAccess } from '../auth/roles.js'
-  import { DRIVERS, DEVICE_TYPES, DEVICE_PROPS } from '../constants/devices.js'
+  import { DRIVERS } from '../constants/devices.js'
   import { LOG_LEVELS, RUN_STATUS } from '../constants/enums.js'
   import { COLORS } from '../constants/colors.js'
 
@@ -22,7 +22,7 @@
   const addLog = inject('addLog', () => {})
   const runState = inject('runState', ref(RUN_STATUS.Idle))
   const runInfo = inject('runInfo',  ref(null))
-  const devices = inject('devices',  ref([]))
+  const resolveDeviceId = inject('resolveDeviceId')
 
 
   /////////////////////////////////////////////
@@ -41,19 +41,6 @@
   // Defining all functions.
   function isRecipeRelay(item) {
     return isRunning.value && runInfo.value?.doSensorId === item.id
-  }
-
-  function resolveDeviceId(connection) {
-    if (!connection || connection === DRIVERS.Simulated)
-      return null
-    for (const d of devices.value) {
-      if (d.type === DEVICE_TYPES.Ip) {
-        const ip = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
-        if (ip === connection) 
-          return d.id
-      }
-    }
-    return null
   }
 
   async function handleRelayChange(state) {
@@ -78,6 +65,7 @@
           try {
             await fetch(`${BACKEND_URL}/api/devices/${deviceId}/do?pin=${item.pin}&state=${state === 'on'}&canvasId=${item.id}`, {
               method: 'POST',
+              headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
             })
           } catch (e) {
             addLog(`Relay command failed: ${e.message}`, LOG_LEVELS.Warning)

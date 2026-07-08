@@ -182,6 +182,7 @@
         try {
           await fetch(`${BACKEND_URL}/api/devices/${device.id}/di/unmonitor?pin=${item.pin}`, {
             method: 'POST',
+            headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
           })
         } catch (e) {
           addLog?.(`DI unmonitor failed for "${item.name}" before removing device: ${e.message}`, LOG_LEVELS.Warning)

@@ -34,6 +34,7 @@
   const addLog = inject('addLog', () => {})
   const items = inject('layoutItems')
   const devices = inject('devices', ref([]))
+  const resolveDeviceId = inject('resolveDeviceId')
 
   let nextId = 1
 
@@ -125,7 +126,10 @@
     try {
       const response = await fetch(`${BACKEND_URL}/api/simulate/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {}),
+        },
         body: JSON.stringify({ canvasId: item.id, name: item.name, driver: item.driver }),
       })
       if (!response.ok) {
@@ -144,26 +148,14 @@
     }
   }
 
-  function resolveDeviceId(connection) {
-
-    if (!connection || connection === DRIVERS.Simulated) 
-      return null
-    for (const d of devices.value) {
-      if (d.type === DEVICE_TYPES.Ip) {
-        const ip = d.properties.find(p => p.name === DEVICE_PROPS.IpAddress)?.value?.trim()
-
-        if (ip === connection) 
-          return d.id
-      }
-    }
-    return null
-  }
-
   // Register a non-simulated sensor
   async function registerRealSensor(item) {
     try {
       const params = new URLSearchParams({ canvasId: item.id, name: item.name, driver: item.driver })
-      await fetch(`${BACKEND_URL}/api/sensors/register-canvas?${params.toString()}`, { method: 'POST' })
+      await fetch(`${BACKEND_URL}/api/sensors/register-canvas?${params.toString()}`, {
+        method: 'POST',
+        headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
+      })
     } catch (e) {
       addLog(`Sensor registration failed for "${item.name}": ${e.message}`, LOG_LEVELS.Warning)
     }
@@ -175,6 +167,7 @@
         try {
           await fetch(`${BACKEND_URL}/api/devices/${deviceId}/di/monitor?pin=${item.pin}&canvasId=${item.id}`, {
             method: 'POST',
+            headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
           })
         } catch (e) {
           addLog(`DI monitor setup failed for "${item.name}": ${e.message}`, LOG_LEVELS.Warning)
@@ -296,6 +289,7 @@
           try {
             await fetch(`${BACKEND_URL}/api/devices/${deviceId}/di/unmonitor?pin=${item.pin}`, {
               method: 'POST',
+              headers: authToken?.value ? { Authorization: `Bearer ${authToken.value}` } : {},
             })
           } catch (e) {
             addLog(`DI unmonitor failed for "${item.name}": ${e.message}`, LOG_LEVELS.Warning)

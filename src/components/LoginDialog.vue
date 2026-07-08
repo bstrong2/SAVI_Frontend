@@ -58,6 +58,16 @@
       const data = await response.json()
       authToken.value = data.token
       currentUser.value = { username: data.username, role: data.role }
+
+      // Persist the session so a page refresh doesn't log the user out. App.vue restores
+      // it on load and clears it on logout... SessionStorage keeps it scoped to this tab.
+      sessionStorage.setItem('savi-auth', JSON.stringify({
+        token: data.token,
+        username: data.username,
+        role: data.role,
+        expiresAt: data.expiresAt,
+      }))
+
       addLog(`Logged in as ${data.username} (${data.role})`, LOG_LEVELS.Info)
       emit('close')
 
