@@ -1,0 +1,40 @@
+name: CI
+
+# Build and run tests on every push and merge/pull request to the main branch.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      # At this point we only have an ubuntu image, no code exists on it. Check out the code.
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Now that we have the code, we can set up node. I picked the version that's installed on my machine.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+          # Cache the npm packages if the package-lock.json file hasn't been changed. Saves some time and probably money whereever this will be hosted.
+          cache: npm
+
+
+      # Install all the npm packages now, will used the cached packages if the lock file is good.
+      - name: Install
+        run: npm ci
+
+      # build the code to look for errors.
+      - name: Build
+        run: npm run build
+
+      # run the tests to make sure the code that was changed still passes the checks.
+      - name: Test
+        run: npm test
