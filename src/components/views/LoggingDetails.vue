@@ -304,18 +304,20 @@
   }
 
   function handleSensorUpdate(sensorId, value) {
-    const tile = layoutItems.value?.find(i => i.id === sensorId && i.type === ITEM_TYPES.Sensor)
+    
+    const id = Number(sensorId)
+    const tile = layoutItems.value?.find(i => i.id === id && i.type === ITEM_TYPES.Sensor)
     if (tile) {
-      if (tile.driver === DRIVERS.CollisionDetector) 
+      if (tile.driver === DRIVERS.CollisionDetector)
         tile.value = value >= 0.5 ? 'Collision!' : 'No Contact'
-      else if (tile.driver === DRIVERS.Relay) 
+      else if (tile.driver === DRIVERS.Relay)
         tile.relayState = value >= 0.5 ? 'on' : 'off'
     }
 
-    if (isLogOnlyMode.value) 
+    if (isLogOnlyMode.value)
       return
 
-    if (sensorId !== selectedSensorId.value) 
+    if (id !== selectedSensorId.value)
       return
 
     const ds = chartData.value.datasets[0]

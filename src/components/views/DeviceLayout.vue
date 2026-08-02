@@ -608,7 +608,8 @@
 
     <AddSensorDialog v-if="showAddSensorDialog" @add="confirmAddSensor" @close="showAddSensorDialog = false"/>
 
-    <button v-if="canOperate" class="reconnect-all-btn" :disabled="reconnecting" @click.stop="reconnectAllDevices">
+    <!-- future implementation, keeping invisible for now -->
+    <button v-if="false && canOperate" class="reconnect-all-btn" :disabled="reconnecting" @click.stop="reconnectAllDevices">
       <font-awesome-icon icon="rotate-right" style="color: var(--accent)"/> {{ reconnecting ? 'Reconnecting…' : 'Reconnect All Devices' }}
     </button>
   </div>
