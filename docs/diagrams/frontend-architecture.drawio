@@ -1,0 +1,167 @@
+<mxfile host="app.diagrams.net" agent="Claude Code">
+  <diagram id="savi-frontend-architecture" name="Frontend Architecture">
+    <mxGraphModel dx="1177" dy="1467" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;fontSize=29;fontStyle=1;align=center;verticalAlign=middle;" value="SAVI Frontend Architecture" vertex="1">
+          <mxGeometry height="30" width="400" x="125" y="-20" as="geometry" />
+        </mxCell>
+        <mxCell id="bgFrontend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=center;fontStyle=1;fontSize=14;dashed=1;fillColor=#fff2cc;strokeColor=#d6b656;spacingTop=6;" value="SAVI Frontend  (Vue 3, Vite)" vertex="1">
+          <mxGeometry height="500" width="750" x="50" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="bgBackend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;align=center;fontStyle=1;fontSize=14;dashed=1;fillColor=#dae8fc;strokeColor=#6c8ebf;spacingTop=6;" value="SAVI Backend" vertex="1">
+          <mxGeometry height="490" width="150" x="900" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="config" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" value="Runtime Config" vertex="1">
+          <mxGeometry height="50" width="160" x="90" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="main" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" value="main.js" vertex="1">
+          <mxGeometry height="50" width="200" x="370" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="appVue" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;fontStyle=1;" value="App.vue&lt;br&gt;root state, SignalR connection" vertex="1">
+          <mxGeometry height="70" width="240" x="300" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="sessionStorage" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;" value="sessionStorage&#xa;auth token, role, expiry" vertex="1">
+          <mxGeometry height="60" width="120" x="650" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="ribbon" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" value="AppRibbon.vue&#xa;nav, run controls, theme toggle" vertex="1">
+          <mxGeometry height="55" width="220" x="70" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="logPanel" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" value="LogPanel.vue" vertex="1">
+          <mxGeometry height="45" width="220" x="70" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="jDyFfX3fyZeU9ldN0OkI-1" edge="1" parent="1" source="dialogs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="appVue" value="Update Auth token&amp;nbsp;&lt;div&gt;&amp;amp; user&amp;nbsp;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212)); color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;on login&lt;/span&gt;&lt;/div&gt;">
+          <mxGeometry relative="1" x="-0.3999" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="490" y="340" />
+              <mxPoint x="490" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dialogs" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" value="Dialogs" vertex="1">
+          <mxGeometry height="60" width="170" x="360" y="412.5" as="geometry" />
+        </mxCell>
+        <mxCell id="views" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=12;" value="Views&lt;br&gt;DeviceLayout, LoggingDetails, etc." vertex="1">
+          <mxGeometry height="70" width="130" x="615" y="85" as="geometry" />
+        </mxCell>
+        <mxCell id="restApi" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=12;" value="REST API" vertex="1">
+          <mxGeometry height="60" width="130" x="910" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="saviHub" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=12;" value="SignalR Hub&#xa;/saviHub" vertex="1">
+          <mxGeometry height="60" width="130" x="910" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="config" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" target="main" value="Fetch before mount">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="main" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" target="appVue" value="Provide backend URL then mount">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="470" y="190" />
+              <mxPoint x="470" y="190" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="appVue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=0.006;exitY=0.579;exitDx=0;exitDy=0;exitPerimeter=0;" target="ribbon" value="App state">
+          <mxGeometry relative="1" x="0.4569" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="180" y="240.5" />
+            </Array>
+            <mxPoint x="310" y="270" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="appVue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="dialogs" value="App state">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="420" y="320" />
+              <mxPoint x="420" y="320" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="appVue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0.345;entryY=0.979;entryDx=0;entryDy=0;entryPerimeter=0;" target="views" value="App state">
+          <mxGeometry relative="1" x="-0.347" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="660" y="217.52" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="ribbon" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;" target="logPanel" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="appVue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=0.877;exitY=1.043;exitDx=0;exitDy=0;exitPerimeter=0;" target="sessionStorage" value="Restore session on load">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="510.5" y="310" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="dialogs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=1;exitY=0.25;exitDx=0;exitDy=0;" target="sessionStorage" value="Save session on login">
+          <mxGeometry relative="1" x="0.6522" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="730" y="427.5" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e9" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;entryX=0.25;entryY=1;entryDx=0;entryDy=0;" target="saviHub" value="Connect to SignalR hub">
+          <mxGeometry relative="1" x="-0.0004" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="340" y="500" />
+              <mxPoint x="942.5" y="500" />
+            </Array>
+            <mxPoint x="340" y="270" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e10" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;fontSize=11;exitX=0;exitY=0.3;exitDx=0;exitDy=0;entryX=0.999;entryY=0.674;entryDx=0;entryDy=0;entryPerimeter=0;" target="appVue" value="Broadcast live updates">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="910" y="247.17" />
+            </Array>
+            <mxPoint x="910" y="249.99999999999977" as="sourcePoint" />
+            <mxPoint x="539.9999999999998" y="256" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e11" edge="1" parent="1" source="dialogs" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=1;exitY=0.75;exitDx=0;exitDy=0;" target="restApi" value="Send login request">
+          <mxGeometry relative="1" x="-0.2868" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="530" y="460" />
+              <mxPoint x="840" y="460" />
+              <mxPoint x="840" y="120" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="views" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=11;exitX=1;exitY=0.25;exitDx=0;exitDy=0;" target="restApi" value="Send API requests">
+          <mxGeometry relative="1" x="-0.1803" as="geometry">
+            <mxPoint as="offset" />
+            <Array as="points">
+              <mxPoint x="745" y="100" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legendSolid" edge="1" parent="1" style="endArrow=block;html=1;strokeColor=#333333;" value="">
+          <mxGeometry relative="1" width="60" as="geometry">
+            <mxPoint x="525" y="-18" as="sourcePoint" />
+            <mxPoint x="585" y="-18" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legendSolidLbl" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;" value="request / provided state" vertex="1">
+          <mxGeometry height="24" width="160" x="595" y="-30" as="geometry" />
+        </mxCell>
+        <mxCell id="legendDashed" edge="1" parent="1" style="endArrow=block;html=1;strokeColor=#333333;dashed=1;" value="">
+          <mxGeometry relative="1" width="60" as="geometry">
+            <mxPoint x="525" y="12" as="sourcePoint" />
+            <mxPoint x="585" y="12" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legendDashedLbl" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;" value="real-time SignalR broadcast" vertex="1">
+          <mxGeometry height="24" width="170" x="595" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
