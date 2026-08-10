@@ -16,14 +16,9 @@
   const layoutItems = inject('layoutItems', ref([]))
 
   const settings = ref([
-    { id: 1, depth: 0, name: 'Connection', value: '', description: 'Connection settings', type: 'group', expanded: true },
-    { id: 4, depth: 1, name: 'Reconnect on Loss', value: generalSettings.value.reconnectOnLoss, description: 'Auto-reconnect when disconnected', type: 'bool', editing: false },
     { id: 5, depth: 0, name: 'Logging', value: '', description: 'Logging settings', type: 'group',  expanded: true },
-    { id: 6, depth: 1, name: 'Log Level', value: generalSettings.value.logLevel, description: 'Minimum log level to display', type: 'string', editing: false },
     { id: 7, depth: 1, name: 'Max Entries', value: generalSettings.value.maxEntries, description: 'Maximum log rows to keep in view', type: 'int', editing: false },
     { id: 8, depth: 1, name: 'Auto Scroll', value: generalSettings.value.autoScroll, description: 'Auto-scroll log to newest entry', type: 'bool', editing: false },
-    { id: 9, depth: 0, name: 'Acquisition', value: '', description: 'Data acquisition settings', type: 'group',  expanded: true },
-    { id: 11, depth: 1, name: 'Timeout (ms)', value: generalSettings.value.timeoutMs, description: 'Sensor read timeout', type: 'int', editing: false },
   ])
 
   const dcExpanded = ref(true)
@@ -103,11 +98,11 @@
     generalSettings.value = {
       host: v(2)  ?? g.host,
       port: Number(v(3))  || g.port,
-      reconnectOnLoss: v(4)  ?? g.reconnectOnLoss,
-      logLevel: v(6)  ?? g.logLevel,
+      reconnectOnLoss: g.reconnectOnLoss,
+      logLevel: g.logLevel,
       maxEntries: Number(v(7))  || g.maxEntries,
       autoScroll: v(8)  ?? g.autoScroll,
-      timeoutMs: Number(v(11)) || g.timeoutMs,
+      timeoutMs: g.timeoutMs,
     }
   }, { deep: true })
 
@@ -375,7 +370,6 @@
     <!-- Context menu -->
     <div v-if="context.visible" class="context-menu" :style="contextMenuStyle" @click.stop>
       <template v-if="context.mode === 'category'">
-        <button class="context-item" @click="addDevice(DEVICE_TYPES.Com)"><font-awesome-icon icon="plug" class="context-icon" style="color: var(--color-green)" /> Add COM Device</button>
         <button class="context-item" @click="addDevice(DEVICE_TYPES.Ip)"><font-awesome-icon icon="network-wired" class="context-icon" style="color: var(--accent)" /> Add IP Device</button>
       </template>
       <template v-else-if="context.mode === 'device'">
